@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logic Puzzle Dungeon</title>
+    <style>
+        body { font-family: monospace; background-color: #333; color: #eee; }
+        #game-container { width: 800px; margin: 20px auto; border: 1px solid #555; padding: 10px; background-color: #222; }
+        #game-output { height: 400px; overflow-y: scroll; border: 1px solid #444; padding: 5px; background-color: #111; }
+        #game-input { width: calc(100% - 12px); padding: 5px; margin-top: 10px; background-color: #333; color: #eee; border: 1px solid #555; }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>Logic Puzzle Dungeon</h1>
+        <div id="game-grid"></div>
+        <div id="game-messages"></div> <!-- For general game messages -->
+        <input type="text" id="game-input" placeholder="Enter your move...">
+    </div>
+
+    <script src="game.js"></script>
+    <script>
+        // Initialize DOM elements and start the game when the page loads
+        window.onload = () => {
+            initBrowserDomElements(); // Call the function defined in game.js
+            game.setupFloor();
+            game.gameLoop();
+        };
+    </script>
+</body>
+</html>
