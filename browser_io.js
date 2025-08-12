@@ -1,5 +1,5 @@
 // browser_io.js
-import { game, UPGRADES } from './core.js';
+import { game, ITEMS } from './core.js';
 
 let gameOutputDiv; // For browser DOM output
 let gameInput; // For browser DOM input
@@ -17,7 +17,7 @@ function clear() {
 
 function prompt(promptText) {
     print(promptText);
-    gameInput.focus();
+    // gameInput.focus(); // Do not focus automatically
 }
 
 function renderGridToDom(displayState) {
@@ -43,7 +43,6 @@ function renderGridToDom(displayState) {
             const gridCell = displayState.grid[r][c];
             const isPlayer = (r === displayState.player.r && c === displayState.player.c);
             const isExit = (r === displayState.exit.r && c === displayState.exit.c);
-            const showExitEarly = game.hasUpgrade('reveal_exit_temporarily');
 
             // アイテムがある場合は背景色を変更
             if (gridCell.hasItem) {
@@ -59,7 +58,7 @@ function renderGridToDom(displayState) {
                     cell.textContent = 'P(' + (gridCell.adjacentTraps === 0 ? '.' : gridCell.adjacentTraps) + ')'; // Player on a safe cell
                     if (!gridCell.hasItem) cell.style.backgroundColor = '#4CAF50'; // アイテムがない場合のみ緑
                 }
-            } else if (isExit && (gridCell.isRevealed || showExitEarly)) {
+            } else if (isExit && (gridCell.isRevealed || displayState.exitRevealedThisFloor)) {
                 cell.textContent = 'E';
                 if (!gridCell.hasItem) cell.style.backgroundColor = '#FFC107'; // アイテムがない場合のみアンバー
             } else if (gridCell.isRevealed) {
@@ -82,37 +81,32 @@ function renderGridToDom(displayState) {
 }
 
 function handleGlobalKeyboardInput(event) {
-    console.log("handleGlobalKeyboardInput called. event.key:", event.key); // 追加
-    if (game.gameState !== 'playing' || game.isGameOver) return;
+    // ゲームオーバー時やテキスト入力中はグローバルキー入力を無効化
+    if (game.isGameOver || document.activeElement === gameInput) return;
 
     let handled = true;
+    let key = event.key.toLowerCase();
+
+    // カーソルキーをwasdにマッピング
     switch (event.key) {
         case 'ArrowUp':
-        case 'w':
-            processBrowserInput('w');
+            key = 'w';
             break;
         case 'ArrowDown':
-        case 's':
-            processBrowserInput('s');
+            key = 's';
             break;
         case 'ArrowLeft':
-        case 'a':
-            processBrowserInput('a');
+            key = 'a';
             break;
         case 'ArrowRight':
-        case 'd':
-            processBrowserInput('d');
+            key = 'd';
             break;
-        case 'u': // ダウジングロッド
-            processBrowserInput('u');
-            break;
-        case 'j': // 跳躍のブーツ
-            processBrowserInput('j');
-            break;
-        default:
-            console.log("Unhandled key:", event.key); // 追加
-            handled = false;
-            break;
+    }
+
+    if ('wasduretj'.includes(key)) {
+        processBrowserInput(key);
+    } else {
+        handled = false;
     }
 
     if (handled) {
@@ -121,85 +115,81 @@ function handleGlobalKeyboardInput(event) {
 }
 
 function processBrowserInput(input) {
-    console.log("processBrowserInput called. input:", input); // 追加
     const actionResult = game.handleInput(input);
+
     if (actionResult && actionResult.action === 'next_floor_after_delay') {
-        print(actionResult.message);
+        // 少し遅れて次のフロアへ
         setTimeout(() => {
             game.floorNumber++;
             game.setupFloor();
             runBrowserGameLoop();
-        }, actionResult.delay);
-    } else {
-        runBrowserGameLoop();
-    }
-}
-
-function updateItemListDisplay(displayState) {
-    const itemListDiv = document.getElementById('item-list');
-    itemListDiv.innerHTML = ''; // Clear previous list
-
-    let itemsHtml = '<strong>Items:</strong> ';
-    if (displayState.player.items.length === 0) {
-        itemsHtml += 'None';
-    } else {
-        const itemDetails = displayState.player.items.map(itemId => {
-            const item = UPGRADES[itemId];
-            let detail = item.name;
-            if (itemId === 'dowsing_rod' && !displayState.dowsingRodUsedThisFloor) {
-                detail += ' (u)';
-            } else if (itemId === 'long_jump' && !displayState.longJumpUsedThisFloor) {
-                detail += ' (j)';
-            }
-            return detail;
-        });
-        itemsHtml += itemDetails.join(', ');
-    }
-    itemListDiv.innerHTML = itemsHtml;
+        }, 1000);
+    } 
+    // handleInput内でゲームの状態が更新されたので、ループを再実行してUIに反映
+    runBrowserGameLoop();
 }
 
 function runBrowserGameLoop() {
     const gameResult = game.gameLoop();
-    clear(); // Clear messages before displaying new state
+    clear(); // メッセージエリアをクリア
 
+    // 1. グリッドの描画
     renderGridToDom(gameResult.displayState);
-    console.log("gameResult.displayState:", gameResult.displayState); // デバッグ用ログ
-    console.log("gameResult.prompt:", gameResult.prompt); // これを追加
 
-    updateItemListDisplay(gameResult.displayState); // ここで呼び出す
+    // 2. アイテムリストの表示
+    const itemListDiv = document.getElementById('item-list');
+    const items = gameResult.displayState.items || [];
+    let itemsHtml = '<strong>Items:</strong> ';
+    if (items.length === 0) {
+        itemsHtml += 'None';
+    } else {
+        itemsHtml += items.map(id => ITEMS[id].name).join(', ');
+    }
+    itemListDiv.innerHTML = itemsHtml;
+    
+    // 3. フロア番号の表示
+    document.getElementById('floor-number').textContent = `Floor: ${gameResult.displayState.floorNumber}`;
 
+    // 4. ゲームオーバー処理
     if (gameResult.gameOver) {
         print(gameResult.message);
+        gameInput.disabled = true; // 入力を無効化
         return;
     }
 
-    if (gameResult.prompt) {
-        print(`--- Floor: ${gameResult.displayState.floorNumber} ---`);
-        print(`Upgrades: ${gameResult.displayState.upgrades.join(', ') || 'None'}`);
-        print(`Items: ${gameResult.displayState.player.items.map(id => UPGRADES[id].name).join(', ') || 'None'}`);
-        if (gameResult.gameState === 'choosing_upgrade') {
-            print('Choose your upgrade:');
-            if (gameResult.displayState.currentUpgradeChoices) {
-                gameResult.displayState.currentUpgradeChoices.forEach((id, index) => {
-                    if (UPGRADES[id]) {
-                        print(`${index + 1}: ${UPGRADES[id].name} - ${UPGRADES[id].description}`);
-                    } else {
-                        print(`${index + 1}: Unknown Upgrade (ID: ${id})`);
-                    }
-                });
-                print('');
-            }
-        prompt(gameResult.prompt);
+    // 5. メッセージとプロンプトの表示
+    if (gameResult.message) {
+        print(gameResult.message);
+    }
+
+    if (gameResult.gameState === 'choosing_item') {
+        if (gameResult.displayState.currentItemChoices) {
+            gameResult.displayState.currentItemChoices.forEach((id, index) => {
+                if (ITEMS[id]) {
+                    print(`${index + 1}: ${ITEMS[id].name} - ${ITEMS[id].description}`);
+                } else {
+                    print(`${index + 1}: Unknown Item (ID: ${id})`);
+                }
+            });
+            print('');
         }
     }
+    
+    prompt(gameResult.prompt);
+    if (gameResult.gameState === 'choosing_item') {
+        gameInput.focus();
+    }
 }
+
 export function initBrowserGame() {
     gameInput = document.getElementById('game-input');
     gameInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
-            const input = gameInput.value;
+            const input = gameInput.value.trim();
             gameInput.value = ''; // Clear input field
-            processBrowserInput(input);
+            if (input) {
+                processBrowserInput(input);
+            }
         }
     });
     document.addEventListener('keydown', handleGlobalKeyboardInput);

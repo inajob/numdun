@@ -14,10 +14,13 @@
 <body>
     <div id="game-container">
         <h1>Logic Puzzle Dungeon</h1>
+        <div id="game-status" style="display: flex; justify-content: space-between; margin-bottom: 10px; padding: 5px; border: 1px solid #444;">
+            <div id="floor-number">Floor: 1</div>
+            <div id="item-list"><strong>Items:</strong> None</div>
+        </div>
         <div id="game-grid"></div>
         <div id="game-messages"></div> <!-- For general game messages -->
-        <div id="item-list"></div> <!-- For displaying items and their keys -->
-        <input type="text" id="game-input" placeholder="Enter your move...">
+        <input type="text" id="game-input" placeholder="Enter command...">
     </div>
 
     <script type="module" src="browser_main.js"></script>
