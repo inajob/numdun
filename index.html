@@ -16,17 +16,10 @@
         <h1>Logic Puzzle Dungeon</h1>
         <div id="game-grid"></div>
         <div id="game-messages"></div> <!-- For general game messages -->
+        <div id="item-list"></div> <!-- For displaying items and their keys -->
         <input type="text" id="game-input" placeholder="Enter your move...">
     </div>
 
-    <script src="game.js"></script>
-    <script>
-        // Initialize DOM elements and start the game when the page loads
-        window.onload = () => {
-            initBrowserDomElements(); // Call the function defined in game.js
-            game.setupFloor();
-            game.gameLoop();
-        };
-    </script>
+    <script type="module" src="browser_main.js"></script>
 </body>
 </html>
