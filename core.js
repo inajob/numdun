@@ -42,11 +42,37 @@ export const game = {
     this.isGameOver = false;
     this.exitRevealedThisFloor = false; // リセット
 
-    const trapCount = 8 + this.floorNumber * 2;
+    // グリッドサイズをフロア数に応じて変更
+    this.rows = 8 + Math.floor(this.floorNumber / 3); // 3フロアごとに1行増やす
+    this.cols = 8 + Math.floor(this.floorNumber / 3); // 3フロアごとに1列増やす
+
+    const baseTrapCount = 8 + this.floorNumber * 2; // 現在の罠の数
+    // 罠の数をグリッドサイズに応じて調整
+    // 例えば、グリッドの総面積の約15%を罠にする
+    const areaBasedTrapCount = Math.floor((this.rows * this.cols) * 0.15);
+    const trapCount = Math.max(baseTrapCount, areaBasedTrapCount); // 既存の増加ロジックと新しいロジックの大きい方を取る
+
+    // 初期アイテムを付与 (既に持っているアイテムは重複して付与しない)
+    const allItemIds = Object.keys(ITEMS);
+    const availableItems = allItemIds.filter(id => !this.player.items.includes(id));
+    if (availableItems.length > 0) {
+        const randomItemId = availableItems[Math.floor(Math.random() * availableItems.length)];
+        this.player.items.push(randomItemId);
+    }
 
     // Generate a solvable grid
     let solvable = false;
+    let attempts = 0; // 試行回数をカウント
+    const MAX_ATTEMPTS = 100; // 最大試行回数
+
     do {
+      attempts++;
+      if (attempts > MAX_ATTEMPTS) {
+        console.warn("Failed to generate a solvable grid after", MAX_ATTEMPTS, "attempts. Forcing generation.");
+        solvable = true; // 強制的にループを抜ける
+        break; // do-while ループを抜ける
+      }
+
       this.generateGrid();
       this.placeTraps(trapCount);
       this.calculateNumbers();
@@ -54,7 +80,16 @@ export const game = {
       // Place one item on the floor
       const placeableItems = Object.keys(ITEMS).filter(id => ITEMS[id].key !== null); // Exclude passive items
       let itemPlaced = false;
+      let itemPlacementAttempts = 0; // アイテム配置の試行回数をカウント
+      const MAX_ITEM_PLACEMENT_ATTEMPTS = 50; // アイテム配置の最大試行回数
+
       while (!itemPlaced) {
+        itemPlacementAttempts++;
+        if (itemPlacementAttempts > MAX_ITEM_PLACEMENT_ATTEMPTS) {
+            console.warn("Failed to place item after", MAX_ITEM_PLACEMENT_ATTEMPTS, "attempts. Skipping item placement for this grid.");
+            break; // アイテム配置ループを抜ける
+        }
+
         const r = Math.floor(Math.random() * this.rows);
         const c = Math.floor(Math.random() * this.cols);
         const isPlayerStart = r === this.player.r && c === this.player.c;
@@ -68,6 +103,9 @@ export const game = {
       }
 
       solvable = this.isSolvable(this.player.r, this.player.c, this.exit.r, this.exit.c, this.grid);
+      if (!solvable) {
+        console.log(`Attempt ${attempts}: Grid not solvable. Retrying...`);
+      }
     } while (!solvable);
 
     this.revealFrom(this.player.r, this.player.c);
@@ -86,7 +124,15 @@ export const game = {
       const c = Math.floor(Math.random() * this.cols);
       const isPlayerStart = r === this.player.r && c === this.player.c;
       const isExit = r === this.exit.r && c === this.exit.c;
-      if (!this.grid[r][c].isTrap && !isPlayerStart && !isExit) {
+
+      // プレイヤーの初期位置の周囲3x3マスには罠を配置しない
+      const isNearPlayerStart = (
+        r >= this.player.r - 1 && r <= this.player.r + 1 &&
+        c >= this.player.c - 1 && c <= this.player.c + 1
+      );
+
+      // isNearPlayerStart の条件を追加
+      if (!this.grid[r][c].isTrap && !isPlayerStart && !isExit && !isNearPlayerStart) {
         this.grid[r][c].isTrap = true;
         trapsPlaced++;
       }
@@ -228,57 +274,73 @@ export const game = {
           
           switch(itemToUse) {
               case 'reveal_one_trap':
-                  // 未発見の罠をランダムに1つ रिवील
-                  const unrevealedTraps = [];
-                  for (let r = 0; r < this.rows; r++) {
-                      for (let c = 0; c < this.cols; c++) {
-                          if (this.grid[r][c].isTrap && !this.grid[r][c].isRevealed) {
-                              unrevealedTraps.push({r, c});
+                  // プレイヤーの周囲8マスを対象に罠を明らかにする
+                  for (let i = -1; i <= 1; i++) {
+                      for (let j = -1; j <= 1; j++) {
+                          if (i === 0 && j === 0) continue; // プレイヤー自身のマスは除く
+                          const checkR = this.player.r + i;
+                          const checkC = this.player.c + j;
+
+                          if (checkR >= 0 && checkR < this.rows && checkC >= 0 && checkC < this.cols) {
+                              const cell = this.grid[checkR][checkC];
+                              if (cell.isTrap) { // 罠であれば明らかにする
+                                  cell.isRevealed = true;
+                              }
                           }
                       }
                   }
-                  if (unrevealedTraps.length > 0) {
-                      const trapToReveal = unrevealedTraps[Math.floor(Math.random() * unrevealedTraps.length)];
-                      this.grid[trapToReveal.r][trapToReveal.c].isRevealed = true;
-                  }
-                  this.player.items.splice(itemIndex, 1);
+                  this.player.items.splice(itemIndex, 1); // アイテムを消費
                   break;
               case 'reduce_traps':
-                  // ランダムな罠を1つ削除
-                  const allTraps = [];
-                  for (let r = 0; r < this.rows; r++) {
-                      for (let c = 0; c < this.cols; c++) {
-                          if (this.grid[r][c].isTrap) {
-                              allTraps.push({r, c});
+                  // プレイヤーの周囲8マスにある罠のリストを作成
+                  const trapsInVicinity = [];
+                  for (let i = -1; i <= 1; i++) {
+                      for (let j = -1; j <= 1; j++) {
+                          if (i === 0 && j === 0) continue; // プレイヤー自身のマスは除く
+                          const checkR = this.player.r + i;
+                          const checkC = this.player.c + j;
+
+                          if (checkR >= 0 && checkR < this.rows && checkC >= 0 && checkC < this.cols) {
+                              const cell = this.grid[checkR][checkC];
+                              if (cell.isTrap) {
+                                  trapsInVicinity.push({ r: checkR, c: checkC });
+                              }
                           }
                       }
                   }
-                  if (allTraps.length > 0) {
-                      const trapToRemove = allTraps[Math.floor(Math.random() * allTraps.length)];
-                      this.grid[trapToRemove.r][trapToRemove.c].isTrap = false;
+
+                  if (trapsInVicinity.length > 0) {
+                      // 周囲に罠がある場合、ランダムに1つ選択して解体
+                      const trapToDemolish = trapsInVicinity[Math.floor(Math.random() * trapsInVicinity.length)];
+                      this.grid[trapToDemolish.r][trapToDemolish.c].isTrap = false;
                       this.calculateNumbers(); // 数字を再計算
                   }
-                  this.player.items.splice(itemIndex, 1);
+                  this.player.items.splice(itemIndex, 1); // アイテムを消費
                   break;
               case 'reveal_exit':
-                  this.exitRevealedThisFloor = true;
-                  this.player.items.splice(itemIndex, 1); // アイテムを消費
+                  if (!this.exitRevealedThisFloor) { // 既に表示されていなければ
+                      this.exitRevealedThisFloor = true;
+                      this.player.items.splice(itemIndex, 1); // アイテムを消費
+                  } else {
+                      // 既に表示されている場合は何もせず、アイテムも消費しない
+                      itemUsed = false; // アイテムが使われなかったことを示す
+                  }
                   break; 
               case 'dowsing_rod':
-                  let trapsInVicinity = 0;
+                  let trapsInVicinityCount = 0;
                   for (let i = -1; i <= 1; i++) {
                       for (let j = -1; j <= 1; j++) {
                           const checkR = this.player.r + i;
                           const checkC = this.player.c + j;
                           if (checkR >= 0 && checkR < this.rows && checkC >= 0 && checkC < this.cols) {
                               if (this.grid[checkR][checkC].isTrap) {
-                                  trapsInVicinity++;
+                                  trapsInVicinityCount++;
                               }
                           }
                       }
                   }
                   // TODO: メッセージをUIに表示する方法が必要
-                  console.log(`[Dowsing] Traps nearby: ${trapsInVicinity}`);
+                  console.log(`[Dowsing] Traps nearby: ${trapsInVicinityCount}`);
                   this.player.items.splice(itemIndex, 1);
                   break;
               case 'long_jump':
@@ -326,10 +388,13 @@ export const game = {
           this.player.items.splice(index, 1);
           currentCell.isTrap = false;
           this.calculateNumbers();
+          // メッセージを設定
+          this.lastActionMessage = '鉄の心臓が身代わりになった！';
         } else {
           currentCell.isRevealed = true;
           this.isGameOver = true;
           this.gameState = 'gameover';
+          this.lastActionMessage = '罠を踏んでしまった！';
         }
       }
 
@@ -393,10 +458,16 @@ export const game = {
       displayState: this.getDisplayState(),
       prompt: promptText,
       message: message,
+      lastActionMessage: this.lastActionMessage, // NEW: 直前の行動メッセージ
       gameOver: this.isGameOver,
       gameState: this.gameState,
     };
   }
+};
+
+// メッセージをクリアする
+game.clearLastActionMessage = function() {
+    this.lastActionMessage = '';
 };
 
 

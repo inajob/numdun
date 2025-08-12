@@ -76,19 +76,29 @@ function handleGlobalKeyboardInput(event) {
     let handled = true;
     let key = event.key.toLowerCase();
 
-    // Arrow keys mapping
-    switch (event.key) {
-        case 'ArrowUp': key = 'w'; break;
-        case 'ArrowDown': key = 's'; break;
-        case 'ArrowLeft': key = 'a'; break;
-        case 'ArrowRight': key = 'd'; break;
-    }
+    // アイテム選択状態の場合
+    if (game.gameState === 'choosing_item') {
+        // 数字キー (1, 2, 3) のみを受け付ける
+        if (['1', '2', '3'].includes(key)) {
+            processBrowserInput(key);
+        } else {
+            handled = false; // それ以外のキーは無視
+        }
+    } else { // 通常のゲームプレイ状態の場合
+        // Arrow keys mapping
+        switch (event.key) {
+            case 'ArrowUp': key = 'w'; break;
+            case 'ArrowDown': key = 's'; break;
+            case 'ArrowLeft': key = 'a'; break;
+            case 'ArrowRight': key = 'd'; break;
+        }
 
-    // Check for valid game command keys
-    if ('wasduretj123'.includes(key)) {
-        processBrowserInput(key);
-    } else {
-        handled = false;
+        // Check for valid game command keys
+        if ('wasduretj'.includes(key)) {
+            processBrowserInput(key);
+        } else {
+            handled = false;
+        }
     }
 
     if (handled) {
@@ -134,6 +144,10 @@ function runBrowserGameLoop() {
 
     if (gameResult.message) {
         print(gameResult.message);
+    }
+    if (gameResult.lastActionMessage) {
+        print(gameResult.lastActionMessage);
+        game.clearLastActionMessage(); // メッセージを表示したらクリア
     }
 
     if (gameResult.gameState === 'choosing_item') {
