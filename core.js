@@ -338,6 +338,7 @@ export const game = {
         this.player.r = jumpRow;
         this.player.c = jumpCol;
         this.gameState = 'playing';
+        this.processPlayerLocation(); // ジャンプ後の共通処理を実行
         return this.gameLoop(); // ジャンプ処理が完了したらここで終了
       } else {
         this.gameState = 'playing'; // 無効な入力なら通常状態に
@@ -438,8 +439,14 @@ export const game = {
       
       if (moved || itemUsed) {
           this.turn++;
+          this.processPlayerLocation(); // 移動またはアイテム使用後の共通処理を実行
       }
+    }
+    
+    return this.gameLoop();
+  },
 
+  processPlayerLocation: function() {
       // 移動・ジャンプ後の共通処理
       const currentCell = this.grid[this.player.r][this.player.c];
 
@@ -456,7 +463,7 @@ export const game = {
             this.gameState = 'choosing_item';
             this.showItemChoiceScreen();
         }
-        return;
+        return; // 共通処理の終了
       }
 
       // 2. 罠判定
@@ -487,9 +494,6 @@ export const game = {
       if(!this.isGameOver) {
           this.revealFrom(this.player.r, this.player.c);
       }
-    }
-    
-    return this.gameLoop();
   },
 
   showItemChoiceScreen: function() {
