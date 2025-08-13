@@ -1,7 +1,7 @@
 // core.js
 
 export const ITEMS = {
-  reveal_one_trap: { name: '千里眼の巻物', description: 'ランダムな罠1つの位置を明らかにする。', key: 'r' },
+  reveal_one_trap: { name: '千里眼の巻物', description: 'プレイヤーの周囲8マスにある罠をすべて明らかにする。', key: 'r' },
   trap_shield: { name: '鉄の心臓', description: '罠を踏んだ時に1度だけ身代わりになる。(パッシブ)', key: null },
   reduce_traps: { name: '解体の手引き', description: 'ランダムな罠1つを無効化する。', key: 't' },
   reveal_exit: { name: '出口の地図', description: '出口の位置を明らかにする。', key: 'e' },
