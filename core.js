@@ -5,8 +5,7 @@ export const ITEMS = {
   trap_shield: { name: '鉄の心臓', description: '罠を踏んだ時に1度だけ身代わりになる。(パッシブ)', key: null },
   reduce_traps: { name: '解体の手引き', description: 'ランダムな罠1つを無効化する。', key: 't' },
   reveal_exit: { name: '出口の地図', description: '出口の位置を明らかにする。', key: 'e' },
-  dowsing_rod: { name: 'ダウジングロッド', description: '現在地の周囲8マスにある罠の数を表示する。', key: 'u' },
-  long_jump: { name: '跳躍のブーツ', description: '指定した方向に2マスジャンプする。', key: 'j' },
+  long_jump: { name: '跳躍のブーツ', description: '指定した方向に1マス飛び越えて、2マス先に進む。', key: 'j' },
 };
 
 export const game = {
@@ -20,6 +19,7 @@ export const game = {
   gameState: 'playing', // playing, choosing_item, jumping_direction, gameover
   isGameOver: false,
   exitRevealedThisFloor: false, // NEW: 出口の地図がこのフロアで使われたか
+  REVELATION_THRESHOLD: 0.5, // 開示率のしきい値 (50%)
   
   currentItemChoices: [],
 
@@ -62,6 +62,7 @@ export const game = {
 
     // Generate a solvable grid
     let solvable = false;
+    let goalInitiallyVisible = false;
     let attempts = 0; // 試行回数をカウント
     const MAX_ATTEMPTS = 100; // 最大試行回数
 
@@ -70,6 +71,7 @@ export const game = {
       if (attempts > MAX_ATTEMPTS) {
         console.warn("Failed to generate a solvable grid after", MAX_ATTEMPTS, "attempts. Forcing generation.");
         solvable = true; // 強制的にループを抜ける
+        goalInitiallyVisible = false; // 強制的にループを抜ける際はfalseにする
         break; // do-while ループを抜ける
       }
 
@@ -94,7 +96,7 @@ export const game = {
         const c = Math.floor(Math.random() * this.cols);
         const isPlayerStart = r === this.player.r && c === this.player.c;
         const isExit = r === this.exit.r && c === this.exit.c;
-        if (!this.grid[r][c].isTrap && !isPlayerStart && !isExit && !this.grid[r][c].hasItem && this.grid[r][c].adjacentTraps === 0) {
+        if (!this.grid[r][c].isTrap && !isPlayerStart && !isExit && !this.grid[r][c].hasItem) {
           const randomItemId = placeableItems[Math.floor(Math.random() * placeableItems.length)];
           this.grid[r][c].hasItem = true;
           this.grid[r][c].itemId = randomItemId;
@@ -103,10 +105,14 @@ export const game = {
       }
 
       solvable = this.isSolvable(this.player.r, this.player.c, this.exit.r, this.exit.c, this.grid);
+      goalInitiallyVisible = this.isGoalInitiallyVisible(this.player.r, this.player.c, this.exit.r, this.exit.c, this.grid);
+
       if (!solvable) {
         console.log(`Attempt ${attempts}: Grid not solvable. Retrying...`);
+      } else if (goalInitiallyVisible) {
+        console.log(`Attempt ${attempts}: Goal initially visible. Retrying...`);
       }
-    } while (!solvable);
+    } while (!solvable || goalInitiallyVisible);
 
     this.revealFrom(this.player.r, this.player.c);
   },
@@ -161,6 +167,26 @@ export const game = {
   revealFrom: function(r, c) {
     if (r < 0 || r >= this.rows || c < 0 || c >= this.cols || this.grid[r][c].isRevealed) return;
     this.grid[r][c].isRevealed = true;
+
+    // Check neighbors for exit or items
+    for (let i = -1; i <= 1; i++) {
+      for (let j = -1; j <= 1; j++) {
+        if (i === 0 && j === 0) continue;
+        const nR = r + i, nC = c + j;
+        if (nR >= 0 && nR < this.rows && nC >= 0 && nC < this.cols) {
+          const neighborCell = this.grid[nR][nC];
+          // Reveal exit if adjacent and not revealed
+          if (nR === this.exit.r && nC === this.exit.c && !neighborCell.isRevealed) {
+            neighborCell.isRevealed = true;
+          }
+          // Reveal item if adjacent and not revealed
+          if (neighborCell.hasItem && !neighborCell.isRevealed) {
+            neighborCell.isRevealed = true;
+          }
+        }
+      }
+    }
+
     if (this.grid[r][c].adjacentTraps === 0) {
       for (let i = -1; i <= 1; i++) {
         for (let j = -1; j <= 1; j++) {
@@ -204,6 +230,66 @@ export const game = {
       }
     }
     return false;
+  },
+
+  // NEW: 初期配置でゴールがプレイヤーに見えていないかを確認する関数
+  isGoalInitiallyVisible: function(startR, startC, exitR, exitC, grid) {
+      const rows = grid.length;
+      const cols = grid[0].length;
+      const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
+      const queue = [{ r: startR, c: startC }];
+
+      if (startR === exitR && startC === exitC) return true; // Player starts on exit
+
+      visited[startR][startC] = true;
+
+      const dr = [-1, -1, -1, 0, 0, 1, 1, 1]; // 8 directions
+      const dc = [-1, 0, 1, -1, 1, -1, 0, 1];
+
+      while (queue.length > 0) {
+          const { r, c } = queue.shift();
+
+          // Check if any neighbor of the current cell is the exit (new logic for exit visibility)
+          for (let i = -1; i <= 1; i++) {
+              for (let j = -1; j <= 1; j++) {
+                  if (i === 0 && j === 0) continue;
+                  const nr = r + i;
+                  const nc = c + j;
+                  if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                      if (nr === exitR && nc === exitC) return true; // Exit is visible!
+                  }
+              }
+          }
+
+          // If this cell has traps nearby, it stops the cascade
+          if (grid[r][c].adjacentTraps > 0 && !(r === startR && c === startC)) {
+              continue;
+          }
+
+          for (let i = 0; i < 8; i++) { // Check all 8 neighbors for cascade
+              const nr = r + dr[i];
+              const nc = c + dc[i];
+
+              if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && !visited[nr][nc] && !grid[nr][nc].isTrap) {
+                  visited[nr][nc] = true;
+                  queue.push({ r: nr, c: nc });
+              }
+          }
+      }
+      return false; // Exit is not visible
+  },
+
+  // NEW: フロアの開示率を計算する関数
+  calculateRevelationRate: function() {
+      let revealedCount = 0;
+      for (let r = 0; r < this.rows; r++) {
+          for (let c = 0; c < this.cols; c++) {
+              if (this.grid[r][c].isRevealed) {
+                  revealedCount++;
+              }
+          }
+      }
+      return revealedCount / (this.rows * this.cols);
   },
 
   getDisplayState: function() {
@@ -252,7 +338,7 @@ export const game = {
         this.player.r = jumpRow;
         this.player.c = jumpCol;
         this.gameState = 'playing';
-        // ジャンプ後の処理（罠、アイテム取得など）は移動処理に共通化
+        return this.gameLoop(); // ジャンプ処理が完了したらここで終了
       } else {
         this.gameState = 'playing'; // 無効な入力なら通常状態に
         return this.gameLoop();
@@ -326,23 +412,6 @@ export const game = {
                       itemUsed = false; // アイテムが使われなかったことを示す
                   }
                   break; 
-              case 'dowsing_rod':
-                  let trapsInVicinityCount = 0;
-                  for (let i = -1; i <= 1; i++) {
-                      for (let j = -1; j <= 1; j++) {
-                          const checkR = this.player.r + i;
-                          const checkC = this.player.c + j;
-                          if (checkR >= 0 && checkR < this.rows && checkC >= 0 && checkC < this.cols) {
-                              if (this.grid[checkR][checkC].isTrap) {
-                                  trapsInVicinityCount++;
-                              }
-                          }
-                      }
-                  }
-                  // TODO: メッセージをUIに表示する方法が必要
-                  console.log(`[Dowsing] Traps nearby: ${trapsInVicinityCount}`);
-                  this.player.items.splice(itemIndex, 1);
-                  break;
               case 'long_jump':
                   this.gameState = 'jumping_direction';
                   // アイテムはジャンプ成功時に消費
@@ -376,8 +445,17 @@ export const game = {
 
       // 1. 出口判定
       if (this.player.r === this.exit.r && this.player.c === this.exit.c) {
-        this.gameState = 'choosing_item';
-        this.showItemChoiceScreen();
+        const REVELATION_THRESHOLD = 0.5; // 50%の開示率
+        const currentRevelationRate = this.calculateRevelationRate();
+
+        if (currentRevelationRate < REVELATION_THRESHOLD) {
+            this.lastActionMessage = `フロア開示率が${(REVELATION_THRESHOLD * 100).toFixed(0)}%未満のため、アイテムボーナスはありませんでした。（${(currentRevelationRate * 100).toFixed(0)}%）`;
+            this.floorNumber++;
+            this.setupFloor();
+        } else {
+            this.gameState = 'choosing_item';
+            this.showItemChoiceScreen();
+        }
         return;
       }
 

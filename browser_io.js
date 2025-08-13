@@ -1,11 +1,14 @@
 // browser_io.js
 import { game, ITEMS } from './core.js';
 
+let selectedChoiceIndex = 0; // For keyboard selection on item choice screen
+
 function print(text) {
     const p = document.createElement('p');
     p.textContent = text;
-    document.getElementById('game-messages').appendChild(p);
-    document.getElementById('game-messages').scrollTop = document.getElementById('game-messages').scrollHeight; // Auto-scroll to bottom
+    const messagesDiv = document.getElementById('game-messages');
+    messagesDiv.appendChild(p);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll to bottom
 }
 
 function clear() {
@@ -17,36 +20,38 @@ function renderGridToDom(displayState) {
     gameGridDiv.innerHTML = ''; // Clear previous grid
 
     const table = document.createElement('table');
-    table.style.borderCollapse = 'collapse';
+    table.style.borderCollapse = 'separate';
+    table.style.borderSpacing = 'var(--grid-gap, 2px)';
+
 
     for (let r = 0; r < displayState.grid.length; r++) {
         const row = document.createElement('tr');
         for (let c = 0; c < displayState.grid[0].length; c++) {
             const cell = document.createElement('td');
-            cell.style.width = '30px';
-            cell.style.height = '30px';
-            cell.style.border = '1px solid #555';
+            cell.style.width = 'var(--cell-size, 30px)';
+            cell.style.height = 'var(--cell-size, 30px)';
             cell.style.textAlign = 'center';
             cell.style.verticalAlign = 'middle';
             cell.style.fontWeight = 'bold';
-            cell.style.fontSize = '1.2em';
+            cell.style.fontSize = 'calc(var(--cell-size, 30px) * 0.6)';
             cell.style.cursor = 'default';
+            cell.style.borderRadius = '3px';
 
             const gridCell = displayState.grid[r][c];
             const isPlayer = (r === displayState.player.r && c === displayState.player.c);
             const isExit = (r === displayState.exit.r && c === displayState.exit.c);
 
-            if (gridCell.hasItem) {
+            if (gridCell.hasItem && gridCell.isRevealed) {
                 cell.style.backgroundColor = '#8BC34A';
             }
 
             if (isPlayer) {
                 if (gridCell.isTrap) {
-                    cell.textContent = 'P(X)';
-                    if (!gridCell.hasItem) cell.style.backgroundColor = '#F44336';
+                    cell.textContent = 'X'; // Show X if player is on a trap
+                    if (!gridCell.hasItem) cell.style.backgroundColor = '#F44336'; // Red for trap
                 } else {
-                    cell.textContent = 'P(' + (gridCell.adjacentTraps === 0 ? '.' : gridCell.adjacentTraps) + ')';
-                    if (!gridCell.hasItem) cell.style.backgroundColor = '#4CAF50';
+                    cell.textContent = gridCell.adjacentTraps === 0 ? '' : gridCell.adjacentTraps; // Show number or empty
+                    if (!gridCell.hasItem) cell.style.backgroundColor = '#4CAF50'; // Green for safe
                 }
             } else if (isExit && (gridCell.isRevealed || displayState.exitRevealedThisFloor)) {
                 cell.textContent = 'E';
@@ -61,7 +66,7 @@ function renderGridToDom(displayState) {
                 }
             } else {
                 cell.textContent = '';
-                if (!gridCell.hasItem) cell.style.backgroundColor = '#616161';
+                cell.style.backgroundColor = '#616161';
             }
             row.appendChild(cell);
         }
@@ -74,31 +79,63 @@ function handleGlobalKeyboardInput(event) {
     if (game.isGameOver) return;
 
     let handled = true;
-    let key = event.key.toLowerCase();
+    const key = event.key.toLowerCase();
 
-    // アイテム選択状態の場合
     if (game.gameState === 'choosing_item') {
-        // 数字キー (1, 2, 3) のみを受け付ける
-        if (['1', '2', '3'].includes(key)) {
-            processBrowserInput(key);
-        } else {
-            handled = false; // それ以外のキーは無視
-        }
-    } else { // 通常のゲームプレイ状態の場合
-        // Arrow keys mapping
+        event.preventDefault();
+        const choices = document.querySelectorAll('.item-choice-btn');
+        if (!choices.length) return;
+
         switch (event.key) {
-            case 'ArrowUp': key = 'w'; break;
-            case 'ArrowDown': key = 's'; break;
-            case 'ArrowLeft': key = 'a'; break;
-            case 'ArrowRight': key = 'd'; break;
+            case 'ArrowUp':
+                selectedChoiceIndex = (selectedChoiceIndex > 0) ? selectedChoiceIndex - 1 : choices.length - 1;
+                updateChoiceHighlight();
+                break;
+            case 'ArrowDown':
+                selectedChoiceIndex = (selectedChoiceIndex < choices.length - 1) ? selectedChoiceIndex + 1 : 0;
+                updateChoiceHighlight();
+                break;
+            case 'Enter':
+                // Find the selected button and trigger its action
+                const selectedButton = choices[selectedChoiceIndex];
+                if (selectedButton) {
+                    selectedButton.click(); // Simulate a click
+                }
+                break;
+            default:
+                handled = false;
+                break;
         }
 
-        // Check for valid game command keys
-        if ('wasduretj'.includes(key)) {
-            processBrowserInput(key);
+    } else if (game.gameState === 'jumping_direction') {
+        let moveKey = key;
+        switch (event.key) {
+            case 'ArrowUp': moveKey = 'w'; break;
+            case 'ArrowDown': moveKey = 's'; break;
+            case 'ArrowLeft': moveKey = 'a'; break;
+            case 'ArrowRight': moveKey = 'd'; break;
+        }
+        if ('wasd'.includes(moveKey)) {
+            processBrowserInput(moveKey);
         } else {
             handled = false;
         }
+    } else if (game.gameState === 'playing') {
+        let moveKey = key;
+        switch (event.key) {
+            case 'ArrowUp': moveKey = 'w'; break;
+            case 'ArrowDown': moveKey = 's'; break;
+            case 'ArrowLeft': moveKey = 'a'; break;
+            case 'ArrowRight': moveKey = 'd'; break;
+        }
+
+        if ('wasdretj'.includes(moveKey)) {
+            processBrowserInput(moveKey);
+        } else {
+            handled = false;
+        }
+    } else {
+        handled = false;
     }
 
     if (handled) {
@@ -110,64 +147,214 @@ function processBrowserInput(input) {
     const actionResult = game.handleInput(input);
 
     if (actionResult && actionResult.action === 'next_floor_after_delay') {
-        setTimeout(() => {
-            game.floorNumber++;
-            game.setupFloor();
-            runBrowserGameLoop();
-        }, 1000);
+        game.floorNumber++;
+        game.setupFloor();
     }
     runBrowserGameLoop();
 }
 
 function runBrowserGameLoop() {
     const gameResult = game.gameLoop();
-    clear();
+    const displayState = gameResult.displayState;
 
-    renderGridToDom(gameResult.displayState);
+    const gameGrid = document.getElementById('game-grid');
+    const controls = document.getElementById('controls');
+    const itemSelectionScreen = document.getElementById('item-selection-screen');
+    const gameStatus = document.getElementById('game-status');
+    const gameMessages = document.getElementById('game-messages');
+    const inventoryScreen = document.getElementById('inventory-screen');
 
-    const itemListDiv = document.getElementById('item-list');
-    const items = gameResult.displayState.items || [];
-    let itemsHtml = '<strong>Items:</strong> ';
-    if (items.length === 0) {
-        itemsHtml += 'None';
+    // Hide all screens by default, then show the correct one
+    gameGrid.style.display = 'none';
+    controls.style.display = 'none';
+    itemSelectionScreen.style.display = 'none';
+    inventoryScreen.style.display = 'none';
+    gameStatus.style.display = 'none';
+    gameMessages.style.display = 'none';
+
+
+    if (gameResult.gameState === 'choosing_item') {
+        gameStatus.style.display = 'flex';
+        itemSelectionScreen.style.display = 'block';
+        renderItemSelectionScreen(displayState.currentItemChoices);
     } else {
-        itemsHtml += items.map(id => ITEMS[id].name).join(', ');
+        // Show game grid/controls, hide item selection screen
+        gameGrid.style.display = 'flex';
+        controls.style.display = 'grid';
+        gameStatus.style.display = 'flex';
+        gameMessages.style.display = 'block';
+
+        clear();
+        renderGridToDom(displayState);
+
+        const itemListDiv = document.getElementById('item-list');
+        const items = displayState.items || [];
+        let itemsHtml = '<strong>Items:</strong> ';
+        if (items.length === 0) {
+            itemsHtml += 'None';
+        } else {
+            itemsHtml += items.map(id => ITEMS[id].name).join(', ');
+        }
+        itemListDiv.innerHTML = itemsHtml;
+
+        document.getElementById('floor-number').textContent = `Floor: ${displayState.floorNumber}`;
+
+        const revelationStatusDiv = document.getElementById('revelation-status');
+        const currentRevelationRate = game.calculateRevelationRate();
+        if (currentRevelationRate >= game.REVELATION_THRESHOLD) {
+            revelationStatusDiv.textContent = '開示率: 達成';
+            revelationStatusDiv.style.color = '#4CAF50'; // Green color for achieved
+        } else {
+            revelationStatusDiv.textContent = '開示率: 未達成';
+            revelationStatusDiv.style.color = '#F44336'; // Red color for not achieved
+        }
+
+        if (gameResult.gameOver) {
+            print(gameResult.message);
+            // Disable controls on game over, except reset
+            document.querySelectorAll('.control-btn').forEach(b => {
+                if (b.id !== 'btn-reset') {
+                    b.style.pointerEvents = 'none';
+                    b.style.backgroundColor = '#333';
+                }
+            });
+            return;
+        }
+
+        if (gameResult.message) {
+            print(gameResult.message);
+        }
+        if (gameResult.lastActionMessage) {
+            print(gameResult.lastActionMessage);
+            game.clearLastActionMessage(); // メッセージを表示したらクリア
+        }
+
+        print(gameResult.prompt);
     }
-    itemListDiv.innerHTML = itemsHtml;
+}
 
-    document.getElementById('floor-number').textContent = `Floor: ${gameResult.displayState.floorNumber}`;
+function renderItemSelectionScreen(choices) {
+    const screen = document.getElementById('item-selection-screen');
+    screen.innerHTML = '<h2>Floor Cleared! Choose a reward:</h2>';
+    selectedChoiceIndex = 0; // Reset index when screen is rendered
 
-    if (gameResult.gameOver) {
-        print(gameResult.message);
+    if (choices) {
+        choices.forEach((id, index) => {
+            const item = ITEMS[id];
+            if (item) {
+                const button = document.createElement('button');
+                button.className = 'item-choice-btn';
+                button.innerHTML = `<strong>${item.name}</strong><span>${item.description}</span>`;
+                
+                const action = (event) => {
+                    event.preventDefault();
+                    processBrowserInput(String(index + 1));
+                };
+
+                button.addEventListener('click', action);
+                button.addEventListener('touchstart', action, { passive: false });
+
+                screen.appendChild(button);
+            } 
+        });
+        updateChoiceHighlight(); // Set initial highlight
+    }
+}
+
+function updateChoiceHighlight() {
+    const choices = document.querySelectorAll('.item-choice-btn');
+    choices.forEach((btn, index) => {
+        if (index === selectedChoiceIndex) {
+            btn.classList.add('selected');
+        } else {
+            btn.classList.remove('selected');
+        }
+    });
+}
+
+function setupControlButtons() {
+    document.getElementById('btn-inventory').addEventListener('click', showInventoryScreen);
+
+    const keyButtons = document.querySelectorAll('[data-key]');
+    keyButtons.forEach(button => {
+        const action = (event) => {
+            event.preventDefault();
+            const key = button.getAttribute('data-key');
+            if (key) {
+                processBrowserInput(key);
+            }
+        };
+        button.addEventListener('click', action);
+        button.addEventListener('touchstart', action, { passive: false });
+    });
+}
+
+function showInventoryScreen() {
+    const displayState = game.getDisplayState();
+    const usableItems = displayState.items
+        .map(id => ITEMS[id])
+        .filter(item => item.key !== null);
+
+    if (usableItems.length === 0) {
+        print("You have no usable items.");
         return;
     }
 
-    if (gameResult.message) {
-        print(gameResult.message);
-    }
-    if (gameResult.lastActionMessage) {
-        print(gameResult.lastActionMessage);
-        game.clearLastActionMessage(); // メッセージを表示したらクリア
-    }
+    // Hide game, show inventory
+    document.getElementById('game-grid').style.display = 'none';
+    document.getElementById('controls').style.display = 'none';
+    document.getElementById('game-status').style.display = 'none';
+    document.getElementById('game-messages').style.display = 'none';
+    const inventoryScreen = document.getElementById('inventory-screen');
+    inventoryScreen.style.display = 'block';
 
-    if (gameResult.gameState === 'choosing_item') {
-        if (gameResult.displayState.currentItemChoices) {
-            gameResult.displayState.currentItemChoices.forEach((id, index) => {
-                if (ITEMS[id]) {
-                    print(`${index + 1}: ${ITEMS[id].name} - ${ITEMS[id].description}`);
-                } else {
-                    print(`${index + 1}: Unknown Item (ID: ${id})`);
-                }
-            });
-            print('');
-        }
-    }
-
-    print(gameResult.prompt);
+    renderInventoryScreen(usableItems);
 }
+
+function renderInventoryScreen(usableItems) {
+    const screen = document.getElementById('inventory-screen');
+    screen.innerHTML = '<h2>Use Item</h2>';
+
+    const hideAndShowGame = () => {
+        screen.style.display = 'none';
+        document.getElementById('game-grid').style.display = 'flex';
+        document.getElementById('controls').style.display = 'grid';
+        document.getElementById('game-status').style.display = 'flex';
+        document.getElementById('game-messages').style.display = 'block';
+    };
+
+    usableItems.forEach(item => {
+        const button = document.createElement('button');
+        button.className = 'inventory-item-btn';
+        button.textContent = item.name;
+        const action = (event) => {
+            event.preventDefault();
+            hideAndShowGame();
+            processBrowserInput(item.key);
+        };
+        button.addEventListener('click', action);
+        button.addEventListener('touchstart', action, { passive: false });
+        screen.appendChild(button);
+    });
+
+    const cancelButton = document.createElement('button');
+    cancelButton.className = 'inventory-item-btn';
+    cancelButton.id = 'inventory-cancel-btn';
+    cancelButton.textContent = 'Cancel';
+    const cancelAction = (event) => {
+        event.preventDefault();
+        hideAndShowGame();
+        runBrowserGameLoop(); // Redraw the game state without taking a turn
+    };
+    cancelButton.addEventListener('click', cancelAction);
+    cancelButton.addEventListener('touchstart', cancelAction, { passive: false });
+    screen.appendChild(cancelButton);
+}
+
 
 export function initBrowserGame() {
     document.addEventListener('keydown', handleGlobalKeyboardInput);
+    setupControlButtons();
     game.setupFloor();
     runBrowserGameLoop();
 }
