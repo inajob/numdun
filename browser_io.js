@@ -19,6 +19,19 @@ function renderGridToDom(displayState) {
     const gameGridDiv = document.getElementById('game-grid');
     gameGridDiv.innerHTML = ''; // Clear previous grid
 
+    // Calculate dynamic cell size
+    const gridGap = 2; // From CSS --grid-gap
+    const totalGridGapWidth = (displayState.grid[0].length - 1) * gridGap;
+    const availableWidth = gameGridDiv.clientWidth || window.innerWidth * 0.9; // Use container width or a percentage of window width
+    let optimalCellSize = (availableWidth - totalGridGapWidth) / displayState.grid[0].length;
+
+    // Apply min/max constraints
+    const MIN_CELL_SIZE = 20; // Minimum cell size in pixels
+    const MAX_CELL_SIZE = 40; // Maximum cell size in pixels
+    optimalCellSize = Math.max(MIN_CELL_SIZE, Math.min(MAX_CELL_SIZE, optimalCellSize));
+
+    document.documentElement.style.setProperty('--dynamic-cell-size', `${optimalCellSize}px`);
+
     const table = document.createElement('table');
     table.style.borderCollapse = 'separate';
     table.style.borderSpacing = 'var(--grid-gap, 2px)';

@@ -9,7 +9,7 @@
     <meta property="og:type" content="game">
     <style>
         :root {
-            --cell-size: min(10vw, 40px);
+            --cell-size: var(--dynamic-cell-size, 40px); /* Fallback to 40px if JS not loaded */
             --grid-gap: 2px;
         }
         body {
