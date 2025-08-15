@@ -2,6 +2,8 @@
 import { game, ITEMS } from './core.js';
 
 let selectedChoiceIndex = 0; // For keyboard selection on item choice screen
+let inputDisabled = false;
+const INPUT_DEBOUNCE_MS = 200; // Cooldown in ms to prevent double taps
 
 function print(text) {
     const p = document.createElement('p');
@@ -292,9 +294,15 @@ function setupControlButtons() {
     keyButtons.forEach(button => {
         const action = (event) => {
             event.preventDefault();
+            if (inputDisabled) return; // Prevent rapid inputs
+
             const key = button.getAttribute('data-key');
             if (key) {
                 processBrowserInput(key);
+                inputDisabled = true;
+                setTimeout(() => {
+                    inputDisabled = false;
+                }, INPUT_DEBOUNCE_MS);
             }
         };
         button.addEventListener('click', action);
