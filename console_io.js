@@ -24,22 +24,28 @@ function displayGridConsole(displayState) {
         let rowStr = '';
         for (let c = 0; c < displayState.grid[0].length; c++) {
             const isExit = r === displayState.exit.r && c === displayState.exit.c;
-            const showExitEarly = game.hasItem('reveal_exit_temporarily') && displayState.turn < 5; // game.hasItem is now used
+            const mapWasUsed = displayState.exitRevealedThisFloor;
 
             if (r === displayState.player.r && c === displayState.player.c) {
                 const cell = displayState.grid[r][c];
                 if (cell.isTrap) rowStr += 'P(X)';
                 else if (cell.adjacentTraps === 0) rowStr += 'P(.)';
                 else rowStr += `P(${cell.adjacentTraps})`;
-            } else if (isExit && (displayState.grid[r][c].isRevealed || showExitEarly)) {
+            } else if (isExit && (displayState.grid[r][c].isRevealed || mapWasUsed)) {
                 rowStr += ' E ';
             }
             else {
                 const cell = displayState.grid[r][c];
                 if (cell.isRevealed) {
-                    if (cell.isTrap) rowStr += ' X ';
-                    else if (cell.adjacentTraps === 0) rowStr += ' . ';
-                    else rowStr += ` ${cell.adjacentTraps} `;
+                    if (cell.hasItem) {
+                        rowStr += ' I ';
+                    } else if (cell.isTrap) {
+                        rowStr += ' X ';
+                    } else if (cell.adjacentTraps === 0) {
+                        rowStr += ' . ';
+                    } else {
+                        rowStr += ` ${cell.adjacentTraps} `;
+                    }
                 }
                 else {
                     rowStr += ' ■ ';
