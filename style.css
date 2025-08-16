@@ -176,9 +176,9 @@ h1 {
 .game-cell--hidden { background-color: #616161; }
 .game-cell--revealed { background-color: #9E9E9E; }
 .game-cell--trap { background-color: #F44336; }
-.game-cell--item { background-color: #FFC107; }
-.game-cell--exit { background-color: #FFC107; }
-.game-cell--player { background-color: #4CAF50; }
+.game-cell--item { background-color: #FFC107; } /* Yellow */
+.game-cell--exit { background-color: #4CAF50; } /* Green */
+.game-cell--player { background-color: #F48FB1; } /* Light Pink */
 
 /* Spans inside the cell */
 .cell-number, .cell-entity, .cell-player-icon {
