@@ -43,46 +43,135 @@ function renderGridToDom(displayState) {
         const row = document.createElement('tr');
         for (let c = 0; c < displayState.grid[0].length; c++) {
             const cell = document.createElement('td');
-            cell.style.width = 'var(--cell-size, 30px)';
-            cell.style.height = 'var(--cell-size, 30px)';
+            // Base cell styles
+            cell.style.width = 'var(--dynamic-cell-size)';
+            cell.style.height = 'var(--dynamic-cell-size)';
             cell.style.textAlign = 'center';
             cell.style.verticalAlign = 'middle';
-            cell.style.fontWeight = 'bold';
-            cell.style.fontSize = 'calc(var(--cell-size, 30px) * 0.6)';
             cell.style.cursor = 'default';
             cell.style.borderRadius = '3px';
+            cell.style.position = 'relative'; // For layering children
 
             const gridCell = displayState.grid[r][c];
             const isPlayer = (r === displayState.player.r && c === displayState.player.c);
             const isExit = (r === displayState.exit.r && c === displayState.exit.c);
+            const isRevealed = gridCell.isRevealed || (isExit && displayState.exitRevealedThisFloor);
 
-            if (gridCell.hasItem && gridCell.isRevealed) {
-                cell.style.backgroundColor = '#8BC34A';
+            // Create spans for the different layers
+            const numberSpan = document.createElement('span');
+            const entitySpan = document.createElement('span'); // For corner icons *, E
+            const playerSpan = document.createElement('span'); // For centered @
+
+            // --- Set Content and Styles based on game state ---
+
+            let cellBackgroundColor = '#616161'; // 1. Default: Hidden
+            let numberContent = '';
+            let numberFontSize = `calc(var(--dynamic-cell-size) * 0.6)`; // Default large
+            let numberColor = '#FFFFFF';
+            let entityContent = '';
+            let playerContent = '';
+
+            if (isRevealed) {
+                cellBackgroundColor = '#9E9E9E'; // 2. Revealed
+                if (gridCell.isTrap) {
+                    cellBackgroundColor = '#F44336'; // Revealed Trap
+                    numberContent = 'X';
+                } else {
+                    numberContent = gridCell.adjacentTraps === 0 ? '' : gridCell.adjacentTraps;
+                }
+
+                // 3. Check for Item/Exit on revealed cells
+                if (gridCell.hasItem) {
+                    cellBackgroundColor = '#FFC107'; // Item color
+                    entityContent = 'I';
+                }
+                if (isExit) {
+                    cellBackgroundColor = '#FFC107'; // Exit color
+                    entityContent = 'E';
+                }
             }
+
+            // 4. Player logic overrides almost everything
+            if (isPlayer) {
+                playerContent = '@';
+                numberFontSize = `calc(var(--dynamic-cell-size) * 0.4)`; // Number becomes small
+                numberColor = '#FFFFFF'; // Keep number white
+
+                // If player is on an item, keep the corner icon
+                if (gridCell.hasItem) {
+                     entityContent = 'I';
+                }
+                 // If player is on the exit, keep the corner icon
+                if (isExit) {
+                    entityContent = 'E';
+                }
+
+                if (gridCell.isTrap) {
+                    cellBackgroundColor = '#F44336'; // Player on trap
+                    numberContent = 'X'; // Show X behind player
+                } else {
+                    // If player is not on a trap, their color is green, overriding item/exit color
+                    cellBackgroundColor = '#4CAF50';
+                }
+            }
+
+            // --- Apply styles and content to spans ---
+
+            // Number Span (styling depends on player presence)
+            numberSpan.textContent = numberContent;
+            numberSpan.style.fontSize = numberFontSize;
+            numberSpan.style.fontWeight = 'bold';
+            numberSpan.style.color = numberColor;
+            numberSpan.style.position = 'absolute';
 
             if (isPlayer) {
-                if (gridCell.isTrap) {
-                    cell.textContent = 'X'; // Show X if player is on a trap
-                    if (!gridCell.hasItem) cell.style.backgroundColor = '#F44336'; // Red for trap
-                } else {
-                    cell.textContent = gridCell.adjacentTraps === 0 ? '' : gridCell.adjacentTraps; // Show number or empty
-                    if (!gridCell.hasItem) cell.style.backgroundColor = '#4CAF50'; // Green for safe
-                }
-            } else if (isExit && (gridCell.isRevealed || displayState.exitRevealedThisFloor)) {
-                cell.textContent = 'E';
-                if (!gridCell.hasItem) cell.style.backgroundColor = '#FFC107';
-            } else if (gridCell.isRevealed) {
-                if (gridCell.isTrap) {
-                    cell.textContent = 'X';
-                    if (!gridCell.hasItem) cell.style.backgroundColor = '#F44336';
-                } else {
-                    cell.textContent = gridCell.adjacentTraps === 0 ? '' : gridCell.adjacentTraps;
-                    if (!gridCell.hasItem) cell.style.backgroundColor = '#9E9E9E';
-                }
+                // Position number in top-left corner
+                numberSpan.style.top = '1px';
+                numberSpan.style.left = '3px';
             } else {
-                cell.textContent = '';
-                cell.style.backgroundColor = '#616161';
+                // Center the number if no player
+                numberSpan.style.top = '0';
+                numberSpan.style.left = '0';
+                numberSpan.style.width = '100%';
+                numberSpan.style.height = '100%';
+                numberSpan.style.display = 'flex';
+                numberSpan.style.alignItems = 'center';
+                numberSpan.style.justifyContent = 'center';
             }
+            cell.appendChild(numberSpan);
+
+            // Entity Span (for corner icons)
+            if (entityContent) {
+                entitySpan.textContent = entityContent;
+                entitySpan.style.position = 'absolute';
+                entitySpan.style.top = '1px';
+                entitySpan.style.right = '3px';
+                entitySpan.style.fontSize = `calc(var(--dynamic-cell-size) * 0.4)`;
+                entitySpan.style.fontWeight = 'bold';
+                entitySpan.style.color = 'rgba(255, 255, 255, 0.9)';
+                cell.appendChild(entitySpan);
+            }
+
+            // Player Span (for centered '@')
+            if (playerContent) {
+                playerSpan.textContent = playerContent;
+                playerSpan.style.position = 'absolute';
+                playerSpan.style.top = '0';
+                playerSpan.style.left = '0';
+                playerSpan.style.width = '100%';
+                playerSpan.style.height = '100%';
+                playerSpan.style.display = 'flex';
+                playerSpan.style.alignItems = 'center';
+                playerSpan.style.justifyContent = 'center';
+                playerSpan.style.fontSize = `calc(var(--dynamic-cell-size) * 0.7)`;
+                playerSpan.style.fontWeight = 'bold';
+                playerSpan.style.color = '#FFFFFF';
+                cell.appendChild(playerSpan);
+            }
+
+            // Set final background color
+            cell.style.backgroundColor = cellBackgroundColor;
+
             row.appendChild(cell);
         }
         table.appendChild(row);
