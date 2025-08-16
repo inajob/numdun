@@ -243,12 +243,28 @@ function runBrowserGameLoop() {
         renderGridToDom(displayState);
 
         const itemListDiv = document.getElementById('item-list');
-        const items = displayState.items || [];
         let itemsHtml = '<strong>Items:</strong> ';
-        if (items.length === 0) {
+        const itemCounts = (displayState.items || []).reduce((counts, id) => {
+            counts[id] = (counts[id] || 0) + 1;
+            return counts;
+        }, {});
+
+        const itemEntries = Object.entries(itemCounts);
+
+        if (itemEntries.length === 0) {
             itemsHtml += 'None';
         } else {
-            itemsHtml += items.map(id => ITEMS[id].name).join(', ');
+            itemsHtml += itemEntries.map(([id, count]) => {
+                const item = ITEMS[id];
+                if (!item) return 'Unknown Item';
+
+                let itemName = item.name;
+                if (item.key) {
+                    itemName += `(${item.key.toLowerCase()})`;
+                }
+
+                return `${itemName} x${count}`;
+            }).join(', ');
         }
         itemListDiv.innerHTML = itemsHtml;
 
