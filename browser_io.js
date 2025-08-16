@@ -5,16 +5,21 @@ let selectedChoiceIndex = 0; // For keyboard selection on item choice screen
 const INPUT_DEBOUNCE_MS = 100; // Cooldown in ms to prevent double taps
 let lastInput = { key: null, time: 0 };
 
-function print(text) {
-    const p = document.createElement('p');
-    p.textContent = text;
-    const messagesDiv = document.getElementById('game-messages');
-    messagesDiv.appendChild(p);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll to bottom
-}
+/**
+ * Displays a short-lived notification pop-up.
+ * @param {string} text The message to display.
+ * @param {number} duration How long to display the message in ms.
+ */
+function showNotification(text, duration = 3000) {
+    const popup = document.createElement('div');
+    popup.className = 'game-popup';
+    popup.textContent = text;
+    document.body.appendChild(popup);
 
-function clear() {
-    document.getElementById('game-messages').innerHTML = '';
+    setTimeout(() => {
+        popup.classList.add('fade-out');
+        popup.addEventListener('transitionend', () => popup.remove());
+    }, duration);
 }
 
 function renderGridToDom(displayState) {
@@ -149,10 +154,9 @@ function handleGlobalKeyboardInput(event) {
                 updateChoiceHighlight();
                 break;
             case 'enter':
-                // Find the selected button and trigger its action
                 const selectedButton = choices[selectedChoiceIndex];
                 if (selectedButton) {
-                    selectedButton.click(); // Simulate a click
+                    selectedButton.click();
                 }
                 break;
             default:
@@ -216,8 +220,8 @@ function runBrowserGameLoop() {
     const controls = document.getElementById('controls');
     const itemSelectionScreen = document.getElementById('item-selection-screen');
     const gameStatus = document.getElementById('game-status');
-    const gameMessages = document.getElementById('game-messages');
     const inventoryScreen = document.getElementById('inventory-screen');
+    const actionPrompt = document.getElementById('action-prompt');
 
     // Hide all screens by default, then show the correct one
     gameGrid.style.display = 'none';
@@ -225,7 +229,7 @@ function runBrowserGameLoop() {
     itemSelectionScreen.style.display = 'none';
     inventoryScreen.style.display = 'none';
     gameStatus.style.display = 'none';
-    gameMessages.style.display = 'none';
+    actionPrompt.style.display = 'none';
 
 
     if (gameResult.gameState === 'choosing_item') {
@@ -233,13 +237,10 @@ function runBrowserGameLoop() {
         itemSelectionScreen.style.display = 'block';
         renderItemSelectionScreen(displayState.currentItemChoices);
     } else {
-        // Show game grid/controls, hide item selection screen
         gameGrid.style.display = 'flex';
         controls.style.display = 'grid';
         gameStatus.style.display = 'flex';
-        gameMessages.style.display = 'block';
 
-        clear();
         renderGridToDom(displayState);
 
         const itemListDiv = document.getElementById('item-list');
@@ -274,15 +275,28 @@ function runBrowserGameLoop() {
         const currentRevelationRate = game.calculateRevelationRate();
         if (currentRevelationRate >= game.REVELATION_THRESHOLD) {
             revelationStatusDiv.textContent = '開示率: 達成';
-            revelationStatusDiv.style.color = '#4CAF50'; // Green color for achieved
+            revelationStatusDiv.style.color = '#4CAF50';
         } else {
             revelationStatusDiv.textContent = '開示率: 未達成';
-            revelationStatusDiv.style.color = '#F44336'; // Red color for not achieved
+            revelationStatusDiv.style.color = '#F44336';
+        }
+
+        // Handle messages based on their type
+        if (gameResult.lastActionMessage) {
+            showNotification(gameResult.lastActionMessage);
+            game.clearLastActionMessage();
+        }
+
+        if (gameResult.gameState === 'jumping_direction') {
+            if (gameResult.message) {
+                actionPrompt.textContent = gameResult.message;
+                actionPrompt.style.display = 'block';
+            }
+        } else if (gameResult.message && gameResult.gameState !== 'choosing_item') {
+            showNotification(gameResult.message);
         }
 
         if (gameResult.gameOver) {
-            print(gameResult.message);
-            // Disable controls on game over, except reset
             document.querySelectorAll('.control-btn').forEach(b => {
                 if (b.id !== 'btn-reset') {
                     b.style.pointerEvents = 'none';
@@ -291,23 +305,13 @@ function runBrowserGameLoop() {
             });
             return;
         }
-
-        if (gameResult.message) {
-            print(gameResult.message);
-        }
-        if (gameResult.lastActionMessage) {
-            print(gameResult.lastActionMessage);
-            game.clearLastActionMessage(); // メッセージを表示したらクリア
-        }
-
-        print(gameResult.prompt);
     }
 }
 
 function renderItemSelectionScreen(choices) {
     const screen = document.getElementById('item-selection-screen');
     screen.innerHTML = '<h2>Floor Cleared! Choose a reward:</h2>';
-    selectedChoiceIndex = 0; // Reset index when screen is rendered
+    selectedChoiceIndex = 0;
 
     if (choices) {
         choices.forEach((id, index) => {
@@ -328,7 +332,7 @@ function renderItemSelectionScreen(choices) {
                 screen.appendChild(button);
             } 
         });
-        updateChoiceHighlight(); // Set initial highlight
+        updateChoiceHighlight();
     }
 }
 
@@ -352,7 +356,7 @@ function setupControlButtons() {
             event.preventDefault();
             const key = button.getAttribute('data-key');
             if (key) {
-                if (isInputDebounced(key)) return; // Check for debounce
+                if (isInputDebounced(key)) return;
                 processBrowserInput(key);
             }
         };
@@ -368,15 +372,13 @@ function showInventoryScreen() {
         .filter(item => item.key !== null);
 
     if (usableItems.length === 0) {
-        print("You have no usable items.");
+        showNotification("You have no usable items.");
         return;
     }
 
-    // Hide game, show inventory
     document.getElementById('game-grid').style.display = 'none';
     document.getElementById('controls').style.display = 'none';
     document.getElementById('game-status').style.display = 'none';
-    document.getElementById('game-messages').style.display = 'none';
     const inventoryScreen = document.getElementById('inventory-screen');
     inventoryScreen.style.display = 'block';
 
@@ -392,7 +394,6 @@ function renderInventoryScreen(usableItems) {
         document.getElementById('game-grid').style.display = 'flex';
         document.getElementById('controls').style.display = 'grid';
         document.getElementById('game-status').style.display = 'flex';
-        document.getElementById('game-messages').style.display = 'block';
     };
 
     usableItems.forEach(item => {
@@ -416,7 +417,7 @@ function renderInventoryScreen(usableItems) {
     const cancelAction = (event) => {
         event.preventDefault();
         hideAndShowGame();
-        runBrowserGameLoop(); // Redraw the game state without taking a turn
+        runBrowserGameLoop();
     };
     cancelButton.addEventListener('click', cancelAction);
     cancelButton.addEventListener('touchstart', cancelAction, { passive: false });
