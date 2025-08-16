@@ -2,8 +2,8 @@
 import { game, ITEMS } from './core.js';
 
 let selectedChoiceIndex = 0; // For keyboard selection on item choice screen
-let inputDisabled = false;
-const INPUT_DEBOUNCE_MS = 200; // Cooldown in ms to prevent double taps
+const INPUT_DEBOUNCE_MS = 100; // Cooldown in ms to prevent double taps
+let lastInput = { key: null, time: 0 };
 
 function print(text) {
     const p = document.createElement('p');
@@ -114,18 +114,31 @@ function renderGridToDom(displayState) {
     gameGridDiv.appendChild(table);
 }
 
+function isInputDebounced(key) {
+    const now = Date.now();
+    if (key === lastInput.key && now - lastInput.time < INPUT_DEBOUNCE_MS) {
+        return true; // Debounce this input
+    }
+    lastInput.key = key;
+    lastInput.time = now;
+    return false;
+}
+
 function handleGlobalKeyboardInput(event) {
     if (game.isGameOver) return;
 
     let handled = true;
     const key = event.key.toLowerCase();
+    const originalKey = event.key; // Keep original for arrow keys etc.
 
     if (game.gameState === 'choosing_item') {
         event.preventDefault();
         const choices = document.querySelectorAll('.item-choice-btn');
         if (!choices.length) return;
 
-        switch (event.key) {
+        if (isInputDebounced(originalKey)) return;
+
+        switch (originalKey) {
             case 'ArrowUp':
                 selectedChoiceIndex = (selectedChoiceIndex > 0) ? selectedChoiceIndex - 1 : choices.length - 1;
                 updateChoiceHighlight();
@@ -155,6 +168,7 @@ function handleGlobalKeyboardInput(event) {
             case 'ArrowRight': moveKey = 'd'; break;
         }
         if ('wasd'.includes(moveKey)) {
+            if (isInputDebounced(moveKey)) return;
             processBrowserInput(moveKey);
         } else {
             handled = false;
@@ -169,6 +183,7 @@ function handleGlobalKeyboardInput(event) {
         }
 
         if ('wasdretj'.includes(moveKey)) {
+            if (isInputDebounced(moveKey)) return;
             processBrowserInput(moveKey);
         } else {
             handled = false;
@@ -318,15 +333,10 @@ function setupControlButtons() {
     keyButtons.forEach(button => {
         const action = (event) => {
             event.preventDefault();
-            if (inputDisabled) return; // Prevent rapid inputs
-
             const key = button.getAttribute('data-key');
             if (key) {
+                if (isInputDebounced(key)) return; // Check for debounce
                 processBrowserInput(key);
-                inputDisabled = true;
-                setTimeout(() => {
-                    inputDisabled = false;
-                }, INPUT_DEBOUNCE_MS);
             }
         };
         button.addEventListener('click', action);
