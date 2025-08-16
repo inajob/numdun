@@ -20,6 +20,7 @@ export const game = {
   isGameOver: false,
   exitRevealedThisFloor: false, // NEW: 出口の地図がこのフロアで使われたか
   REVELATION_THRESHOLD: 0.5, // 開示率のしきい値 (50%)
+  uiEffect: null, // NEW: UIエフェクトのトリガー
   
   currentItemChoices: [],
 
@@ -466,6 +467,8 @@ export const game = {
           this.player.items.splice(index, 1);
           currentCell.isTrap = false;
           this.calculateNumbers();
+          this.revealFrom(this.player.r, this.player.c); // 鉄の心臓発動時に再帰的に開示
+          this.uiEffect = 'flash_red'; // NEW: UIエフェクトのトリガー
           // メッセージを設定
           this.lastActionMessage = '鉄の心臓が身代わりになった！';
         } else {
@@ -534,6 +537,7 @@ export const game = {
       prompt: promptText,
       message: message,
       lastActionMessage: this.lastActionMessage, // NEW: 直前の行動メッセージ
+      uiEffect: this.uiEffect, // NEW: UIエフェクト
       gameOver: this.isGameOver,
       gameState: this.gameState,
     };
@@ -543,6 +547,11 @@ export const game = {
 // メッセージをクリアする
 game.clearLastActionMessage = function() {
     this.lastActionMessage = '';
+};
+
+// UIエフェクトをクリアする
+game.clearUiEffect = function() {
+    this.uiEffect = null;
 };
 
 

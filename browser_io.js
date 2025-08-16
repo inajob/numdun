@@ -296,7 +296,12 @@ function runBrowserGameLoop() {
             showNotification(gameResult.message);
         }
 
-        if (gameResult.gameOver) {
+        if (gameResult.uiEffect === 'flash_red') {
+        flashScreenRed();
+        game.clearUiEffect(); // エフェクトをクリア
+    }
+
+    if (gameResult.gameOver) {
             document.querySelectorAll('.control-btn').forEach(b => {
                 if (b.id !== 'btn-reset') {
                     b.style.pointerEvents = 'none';
@@ -306,6 +311,16 @@ function runBrowserGameLoop() {
             return;
         }
     }
+}
+
+/**
+ * Makes the screen flash red briefly.
+ */
+function flashScreenRed() {
+    document.getElementById('game-container').classList.add('flash-red');
+    setTimeout(() => {
+        document.getElementById('game-container').classList.remove('flash-red');
+    }, 200); // Flash for 200ms
 }
 
 function renderItemSelectionScreen(choices) {
