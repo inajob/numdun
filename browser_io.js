@@ -129,25 +129,26 @@ function handleGlobalKeyboardInput(event) {
 
     let handled = true;
     const key = event.key.toLowerCase();
-    const originalKey = event.key; // Keep original for arrow keys etc.
 
     if (game.gameState === 'choosing_item') {
         event.preventDefault();
         const choices = document.querySelectorAll('.item-choice-btn');
         if (!choices.length) return;
 
-        if (isInputDebounced(originalKey)) return;
+        if (isInputDebounced(key)) return;
 
-        switch (originalKey) {
-            case 'ArrowUp':
+        switch (key) {
+            case 'w':
+            case 'arrowup':
                 selectedChoiceIndex = (selectedChoiceIndex > 0) ? selectedChoiceIndex - 1 : choices.length - 1;
                 updateChoiceHighlight();
                 break;
-            case 'ArrowDown':
+            case 's':
+            case 'arrowdown':
                 selectedChoiceIndex = (selectedChoiceIndex < choices.length - 1) ? selectedChoiceIndex + 1 : 0;
                 updateChoiceHighlight();
                 break;
-            case 'Enter':
+            case 'enter':
                 // Find the selected button and trigger its action
                 const selectedButton = choices[selectedChoiceIndex];
                 if (selectedButton) {
