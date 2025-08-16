@@ -335,6 +335,12 @@ export const game = {
       }
 
       if (jumped && jumpRow >= 0 && jumpRow < this.rows && jumpCol >= 0 && jumpCol < this.cols) {
+        // ジャンプ成功時にアイテムを消費
+        const itemIndex = this.player.items.indexOf('long_jump');
+        if (itemIndex > -1) {
+            this.player.items.splice(itemIndex, 1);
+        }
+
         this.player.r = jumpRow;
         this.player.c = jumpCol;
         this.gameState = 'playing';
