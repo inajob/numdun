@@ -170,25 +170,6 @@ export const game = {
     if (r < 0 || r >= this.rows || c < 0 || c >= this.cols || this.grid[r][c].isRevealed) return;
     this.grid[r][c].isRevealed = true;
 
-    // Check neighbors for exit or items
-    for (let i = -1; i <= 1; i++) {
-      for (let j = -1; j <= 1; j++) {
-        if (i === 0 && j === 0) continue;
-        const nR = r + i, nC = c + j;
-        if (nR >= 0 && nR < this.rows && nC >= 0 && nC < this.cols) {
-          const neighborCell = this.grid[nR][nC];
-          // Reveal exit if adjacent and not revealed
-          if (nR === this.exit.r && nC === this.exit.c && !neighborCell.isRevealed) {
-            neighborCell.isRevealed = true;
-          }
-          // Reveal item if adjacent and not revealed
-          if (neighborCell.hasItem && !neighborCell.isRevealed) {
-            neighborCell.isRevealed = true;
-          }
-        }
-      }
-    }
-
     if (this.grid[r][c].adjacentTraps === 0) {
       for (let i = -1; i <= 1; i++) {
         for (let j = -1; j <= 1; j++) {
@@ -369,7 +350,7 @@ export const game = {
           
           switch(itemToUse) {
               case 'reveal_one_trap':
-                  // プレイヤーの周囲8マスを対象に罠を明らかにする
+                  // プレイヤーの周囲8マスを対象にすべて明らかにする
                   for (let i = -1; i <= 1; i++) {
                       for (let j = -1; j <= 1; j++) {
                           if (i === 0 && j === 0) continue; // プレイヤー自身のマスは除く
@@ -377,9 +358,13 @@ export const game = {
                           const checkC = this.player.c + j;
 
                           if (checkR >= 0 && checkR < this.rows && checkC >= 0 && checkC < this.cols) {
+                              // 罠かどうかに関わらず、そのマスを開示する
+                              // revealFrom を使うことで、0のマスなら連鎖的に開示される
                               const cell = this.grid[checkR][checkC];
-                              if (cell.isTrap) { // 罠であれば明らかにする
-                                  cell.isRevealed = true;
+                              if (cell.isTrap) {
+                                cell.isRevealed = true;
+                              }else{
+                                this.revealFrom(checkR, checkC);
                               }
                           }
                       }
