@@ -58,7 +58,7 @@ function renderGridToDom(displayState) {
 
             // Determine content and classes
             let numberContent = '';
-            let entityContent = '';
+            let entityContent = ''; // For corner icon when player is present
             let playerContent = '';
 
             if (isPlayer) {
@@ -76,20 +76,19 @@ function renderGridToDom(displayState) {
                 if (isExit) entityContent = 'E';
 
             } else if (isRevealed) {
-                if (gridCell.isTrap) {
+                // Priority: Exit > Item > Trap > Number
+                if (isExit) {
+                    cell.classList.add('game-cell--exit');
+                    numberContent = 'E';
+                } else if (gridCell.hasItem) {
+                    cell.classList.add('game-cell--item');
+                    numberContent = 'I';
+                } else if (gridCell.isTrap) {
                     cell.classList.add('game-cell--trap');
                     numberContent = 'X';
                 } else {
                     cell.classList.add('game-cell--revealed');
                     numberContent = gridCell.adjacentTraps === 0 ? '' : gridCell.adjacentTraps;
-                }
-                if (gridCell.hasItem) {
-                    cell.classList.add('game-cell--item');
-                    entityContent = 'I';
-                }
-                if (isExit) {
-                    cell.classList.add('game-cell--exit');
-                    entityContent = 'E';
                 }
             } else {
                 cell.classList.add('game-cell--hidden');
@@ -99,6 +98,7 @@ function renderGridToDom(displayState) {
             numberSpan.textContent = numberContent;
             cell.appendChild(numberSpan);
 
+            // This span is now ONLY for the corner icon when the player is on top of something
             if (entityContent) {
                 const entitySpan = document.createElement('span');
                 entitySpan.className = 'cell-entity';

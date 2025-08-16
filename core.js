@@ -28,13 +28,9 @@ export const game = {
   },
 
   setupFloor: function() {
-    // Player/Exit positioning
+    // Player positioning
     this.player.r = Math.floor(Math.random() * this.rows);
     this.player.c = Math.floor(Math.random() * this.cols);
-    do {
-      this.exit.r = Math.floor(Math.random() * this.rows);
-      this.exit.c = Math.floor(Math.random() * this.cols);
-    } while (this.exit.r === this.player.r && this.exit.c === this.player.c);
 
     // Reset floor state
     this.turn = 0;
@@ -48,9 +44,8 @@ export const game = {
 
     const baseTrapCount = 8 + this.floorNumber * 2; // 現在の罠の数
     // 罠の数をグリッドサイズに応じて調整
-    // 例えば、グリッドの総面積の約15%を罠にする
     const areaBasedTrapCount = Math.floor((this.rows * this.cols) * 0.15);
-    const trapCount = Math.max(baseTrapCount, areaBasedTrapCount); // 既存の増加ロジックと新しいロジックの大きい方を取る
+    const trapCount = Math.max(baseTrapCount, areaBasedTrapCount);
 
     // 初期アイテムを付与 (既に持っているアイテムは重複して付与しない)
     const allItemIds = Object.keys(ITEMS);
@@ -63,45 +58,52 @@ export const game = {
     // Generate a solvable grid
     let solvable = false;
     let goalInitiallyVisible = false;
-    let attempts = 0; // 試行回数をカウント
-    const MAX_ATTEMPTS = 100; // 最大試行回数
+    let attempts = 0;
+    const MAX_ATTEMPTS = 100;
 
     do {
       attempts++;
       if (attempts > MAX_ATTEMPTS) {
-        console.warn("Failed to generate a solvable grid after", MAX_ATTEMPTS, "attempts. Forcing generation.");
-        solvable = true; // 強制的にループを抜ける
-        goalInitiallyVisible = false; // 強制的にループを抜ける際はfalseにする
-        break; // do-while ループを抜ける
+        console.warn("Failed to generate a valid grid after", MAX_ATTEMPTS, "attempts. Forcing generation.");
+        solvable = true; 
+        goalInitiallyVisible = false;
+        break;
       }
 
       this.generateGrid();
       this.placeTraps(trapCount);
       this.calculateNumbers();
       
-      // Place one item on the floor
-      const placeableItems = Object.keys(ITEMS).filter(id => ITEMS[id].key !== null); // Exclude passive items
-      let itemPlaced = false;
-      let itemPlacementAttempts = 0; // アイテム配置の試行回数をカウント
-      const MAX_ITEM_PLACEMENT_ATTEMPTS = 50; // アイテム配置の最大試行回数
-
-      while (!itemPlaced) {
-        itemPlacementAttempts++;
-        if (itemPlacementAttempts > MAX_ITEM_PLACEMENT_ATTEMPTS) {
-            console.warn("Failed to place item after", MAX_ITEM_PLACEMENT_ATTEMPTS, "attempts. Skipping item placement for this grid.");
-            break; // アイテム配置ループを抜ける
+      // Find valid cells for exit and items (adjacentTraps === 0)
+      const validCells = [];
+      for (let r = 0; r < this.rows; r++) {
+        for (let c = 0; c < this.cols; c++) {
+          if (!this.grid[r][c].isTrap && this.grid[r][c].adjacentTraps === 0 && !(r === this.player.r && c === this.player.c)) {
+            validCells.push({ r, c });
+          }
         }
+      }
 
-        const r = Math.floor(Math.random() * this.rows);
-        const c = Math.floor(Math.random() * this.cols);
-        const isPlayerStart = r === this.player.r && c === this.player.c;
-        const isExit = r === this.exit.r && c === this.exit.c;
-        if (!this.grid[r][c].isTrap && !isPlayerStart && !isExit && !this.grid[r][c].hasItem) {
+      // If no valid cells, retry grid generation
+      if (validCells.length < 2) { // Need at least 2 for exit and item
+        solvable = false;
+        continue;
+      }
+
+      // Place Exit
+      const exitIndex = Math.floor(Math.random() * validCells.length);
+      const exitPos = validCells.splice(exitIndex, 1)[0]; // Pick and remove from valid cells
+      this.exit.r = exitPos.r;
+      this.exit.c = exitPos.c;
+
+      // Place one item
+      const placeableItems = Object.keys(ITEMS).filter(id => ITEMS[id].key !== null);
+      if (placeableItems.length > 0 && validCells.length > 0) {
+          const itemIndex = Math.floor(Math.random() * validCells.length);
+          const itemPos = validCells[itemIndex];
           const randomItemId = placeableItems[Math.floor(Math.random() * placeableItems.length)];
-          this.grid[r][c].hasItem = true;
-          this.grid[r][c].itemId = randomItemId;
-          itemPlaced = true;
-        }
+          this.grid[itemPos.r][itemPos.c].hasItem = true;
+          this.grid[itemPos.r][itemPos.c].itemId = randomItemId;
       }
 
       solvable = this.isSolvable(this.player.r, this.player.c, this.exit.r, this.exit.c, this.grid);
