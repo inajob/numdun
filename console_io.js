@@ -1,5 +1,5 @@
 // console_io.js
-import { game, UPGRADES } from './core.js';
+import { game, ITEMS } from './core.js';
 import readline from 'readline'; // Use import for readline
 
 let rl; // For Node.js readline interface
@@ -19,12 +19,12 @@ function prompt(promptText, callback) {
 function displayGridConsole(displayState) {
     clear();
     print(`--- Floor: ${displayState.floorNumber} ---`);
-    print(`Upgrades: ${displayState.upgrades.join(', ') || 'None'}`);
+    print(`Upgrades: ${displayState.items.map(id => ITEMS[id].name).join(', ') || 'None'}`);
     for (let r = 0; r < displayState.grid.length; r++) {
         let rowStr = '';
         for (let c = 0; c < displayState.grid[0].length; c++) {
             const isExit = r === displayState.exit.r && c === displayState.exit.c;
-            const showExitEarly = game.hasUpgrade('reveal_exit_temporarily') && displayState.turn < 5; // game.hasUpgrade is still needed
+            const showExitEarly = game.hasItem('reveal_exit_temporarily') && displayState.turn < 5; // game.hasItem is now used
 
             if (r === displayState.player.r && c === displayState.player.c) {
                 const cell = displayState.grid[r][c];
@@ -70,10 +70,10 @@ function runConsoleGameLoop() {
     if (gameResult.prompt) {
         displayGridConsole(gameResult.displayState);
         print(`--- Floor ${gameResult.displayState.floorNumber} Cleared! ---`); // Message for cleared floor
-        print(`Upgrades: ${gameResult.displayState.upgrades.map(id => UPGRADES[id].name).join(', ') || 'None'}`); // Display upgrades
+        print(`Upgrades: ${gameResult.displayState.items.map(id => ITEMS[id].name).join(', ') || 'None'}`); // Display upgrades
         print('Choose your upgrade:');
-        gameResult.displayState.currentUpgradeChoices.forEach((id, index) => {
-            print(`${index + 1}: ${UPGRADES[id].name} - ${UPGRADES[id].description}`);
+        gameResult.displayState.currentItemChoices.forEach((id, index) => {
+            print(`${index + 1}: ${ITEMS[id].name} - ${ITEMS[id].description}`);
         });
         print('');
 
