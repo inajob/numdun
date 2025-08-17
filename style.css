@@ -169,6 +169,7 @@ h1 {
 
 /* Cell background colors by state */
 .game-cell--hidden { background-color: #616161; }
+.game-cell--flagged { background-color: #616161; color: #BEB4B4; } /* Same bg as hidden, reddish-grey for symbol */
 .game-cell--revealed { background-color: #9E9E9E; }
 .game-cell--trap { background-color: #F44336; }
 .game-cell--item { background-color: #FFC107; } /* Yellow */

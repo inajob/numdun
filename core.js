@@ -155,7 +155,14 @@ export const game = {
 
   generateGrid: function() {
     this.grid = Array.from({ length: this.rows }, () => 
-      Array.from({ length: this.cols }, () => ({ isTrap: false, isRevealed: false, adjacentTraps: 0, hasItem: false, itemId: null }))
+      Array.from({ length: this.cols }, () => ({ 
+        isTrap: false, 
+        isRevealed: false, 
+        adjacentTraps: 0, 
+        hasItem: false, 
+        itemId: null, 
+        isFlagged: false // NEW: フラグの状態を追加
+      }))
     );
   },
 
@@ -201,6 +208,16 @@ export const game = {
       const neighbors = this.getEightDirectionsNeighbors(r, c);
         for (const neighbor of neighbors) {
             this.revealFrom(neighbor.r, neighbor.c);
+        }
+    }
+  },
+
+  // NEW: 指定したマスのフラグを立てる/外す関数
+  toggleFlag: function(r, c) {
+    if (this.isValidCell(r, c)) {
+        const cell = this.grid[r][c];
+        if (!cell.isRevealed) {
+            cell.isFlagged = !cell.isFlagged;
         }
     }
   },
@@ -406,6 +423,11 @@ export const game = {
 
       if (moved) {
         if (this.isValidCell(newRow, newCol)) {
+          // NEW: Check for flag before moving
+          if (this.grid[newRow][newCol].isFlagged) {
+            this.lastActionMessage = 'チェックしたマスには移動できません。';
+            return this.gameLoop();
+          }
           this.player.r = newRow;
           this.player.c = newCol;
         } else {
@@ -428,7 +450,6 @@ export const game = {
       if (this.player.r === this.exit.r && this.player.c === this.exit.c) {
         const currentRevelationRate = this.calculateRevelationRate();
 
-        // 開示率の記録を復元
         this.floorRevelationRates.push({
             floor: this.floorNumber,
             rate: currentRevelationRate
@@ -486,7 +507,6 @@ export const game = {
 
   gameLoop: function() {
     if (this.gameState === 'gameover') {
-        // ゲームオーバー時のリザルト情報セットを復元
         this.finalFloorNumber = this.floorNumber;
         this.finalItems = [...this.player.items];
 
@@ -494,7 +514,6 @@ export const game = {
             displayState: this.getDisplayState(),
             message: '!!! GAME OVER !!!',
             gameState: 'gameover',
-            // リザルト情報を戻り値に追加（復元）
             result: {
                 floorRevelationRates: this.floorRevelationRates,
                 finalFloorNumber: this.finalFloorNumber,

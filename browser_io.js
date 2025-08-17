@@ -68,6 +68,15 @@ function renderGridToDom(displayState) {
             const isExit = (r === displayState.exit.r && c === displayState.exit.c);
             const isRevealed = gridCell.isRevealed || (isExit && displayState.exitRevealedThisFloor);
 
+            // NEW: Add click listener for flagging non-revealed cells
+            if (!isRevealed) {
+                cell.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    game.toggleFlag(r, c);
+                    runBrowserGameLoop();
+                });
+            }
+
             const numberSpan = document.createElement('span');
             numberSpan.className = 'cell-number';
 
@@ -105,6 +114,9 @@ function renderGridToDom(displayState) {
                     cell.classList.add('game-cell--revealed');
                     numberContent = gridCell.adjacentTraps === 0 ? '' : gridCell.adjacentTraps;
                 }
+            } else if (gridCell.isFlagged) {
+                cell.classList.add('game-cell--flagged');
+                numberContent = '⚑';
             } else {
                 cell.classList.add('game-cell--hidden');
             }
