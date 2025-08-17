@@ -222,20 +222,41 @@ function runBrowserGameLoop() {
     const gameStatus = document.getElementById('game-status');
     const inventoryScreen = document.getElementById('inventory-screen');
     const actionPrompt = document.getElementById('action-prompt');
+    const resultScreen = document.getElementById('result-screen'); // この行を追加する
 
     // Hide all screens by default, then show the correct one
-    gameGrid.style.display = 'none';
+    // gameGrid.style.display = 'none'; // ゲームオーバー時は表示したままにするためコメントアウト
     controls.style.display = 'none';
     itemSelectionScreen.style.display = 'none';
     inventoryScreen.style.display = 'none';
     gameStatus.style.display = 'none';
     actionPrompt.style.display = 'none';
-
+    resultScreen.style.display = 'none'; // ここは維持
 
     if (gameResult.gameState === 'choosing_item') {
         gameStatus.style.display = 'flex';
         itemSelectionScreen.style.display = 'block';
         renderItemSelectionScreen(displayState.currentItemChoices);
+    } else if (gameResult.gameOver) {
+        // ゲームオーバー時はゲームグリッドを表示したままにする
+        gameGrid.style.display = 'flex'; // 盤面を表示
+        renderGridToDom(displayState); // 最終状態のグリッドをレンダリング
+
+        // リザルト画面を表示
+        renderResultScreen(gameResult.result);
+        resultScreen.style.display = 'flex';
+
+        // コントロールボタンを無効化
+        document.querySelectorAll('.control-btn').forEach(b => {
+            if (b.id !== 'btn-reset') { // リセットボタン以外
+                b.style.pointerEvents = 'none';
+                b.style.backgroundColor = '#333';
+            }
+        });
+        // ゲームオーバー時はゲームステータスとアクションプロンプトは非表示
+        gameStatus.style.display = 'none';
+        actionPrompt.style.display = 'none';
+
     } else {
         gameGrid.style.display = 'flex';
         controls.style.display = 'grid';
@@ -300,16 +321,6 @@ function runBrowserGameLoop() {
         flashScreenRed();
         game.clearUiEffect(); // エフェクトをクリア
     }
-
-    if (gameResult.gameOver) {
-            document.querySelectorAll('.control-btn').forEach(b => {
-                if (b.id !== 'btn-reset') {
-                    b.style.pointerEvents = 'none';
-                    b.style.backgroundColor = '#333';
-                }
-            });
-            return;
-        }
     }
 }
 
@@ -321,6 +332,47 @@ function flashScreenRed() {
     setTimeout(() => {
         document.getElementById('game-container').classList.remove('flash-red');
     }, 200); // Flash for 200ms
+}
+
+// NEW: リザルト画面のレンダリング関数
+function renderResultScreen(result) {
+    document.getElementById('final-floor').textContent = `最終到達フロア: ${result.finalFloorNumber}`;
+    
+    const finalItemsDiv = document.getElementById('final-items');
+    let itemsHtml = '所持アイテム: ';
+    const itemEntries = Object.entries(result.finalItems); // result.finalItems はすでにカウント済みオブジェクト
+
+    if (itemEntries.length === 0) {
+        itemsHtml += 'なし';
+    } else {
+        itemsHtml += itemEntries.map(([id, count]) => {
+            const item = ITEMS[id];
+            if (!item) return 'Unknown Item';
+
+            let itemName = item.name;
+            // リザルト画面ではキー表示は不要なので削除
+            // if (item.key) {
+            //     itemName += `(${item.key.toLowerCase()})`;
+            // }
+
+            return `${itemName} x${count}`;
+        }).join(', ');
+    }
+    finalItemsDiv.textContent = itemsHtml;
+
+    const floorRevelationRatesDiv = document.getElementById('floor-revelation-rates');
+    floorRevelationRatesDiv.innerHTML = '<h3>各フロアの開示率:</h3>';
+    if (result.floorRevelationRates.length > 0) {
+        const ul = document.createElement('ul');
+        result.floorRevelationRates.forEach(fr => {
+            const li = document.createElement('li');
+            li.textContent = `フロア ${fr.floor}: ${(fr.rate * 100).toFixed(2)}%`;
+            ul.appendChild(li);
+        });
+        floorRevelationRatesDiv.appendChild(ul);
+    } else {
+        floorRevelationRatesDiv.textContent += 'なし';
+    }
 }
 
 function renderItemSelectionScreen(choices) {
@@ -443,6 +495,12 @@ function renderInventoryScreen(usableItems) {
 export function initBrowserGame() {
     document.addEventListener('keydown', handleGlobalKeyboardInput);
     setupControlButtons();
+    // NEW: リセットボタンのイベントリスナーを設定
+    document.getElementById('btn-reset').addEventListener('click', () => {
+        game.floorNumber = 1; // フロアをリセット
+        game.setupFloor(); // ゲームを再開
+        runBrowserGameLoop(); // UIを更新
+    });
     game.setupFloor();
     runBrowserGameLoop();
 }

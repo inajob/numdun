@@ -24,6 +24,11 @@ export const game = {
   
   currentItemChoices: [],
 
+  // NEW: リザルト画面用のプロパティ
+  floorRevelationRates: [], // 各フロアの開示率を記録
+  finalFloorNumber: 0,      // 最終到達フロア
+  finalItems: [],           // ゲームオーバー時の所持アイテム
+
   hasItem: function(itemId) {
     return this.player.items.includes(itemId);
   },
@@ -38,6 +43,13 @@ export const game = {
     this.gameState = 'playing';
     this.isGameOver = false;
     this.exitRevealedThisFloor = false; // リセット
+
+    // NEW: ゲーム開始時にリザルト情報を初期化
+    if (this.floorNumber === 1) {
+        this.floorRevelationRates = [];
+        this.finalFloorNumber = 0;
+        this.finalItems = [];
+    }
 
     // グリッドサイズをフロア数に応じて変更
     this.rows = 8 + Math.floor(this.floorNumber / 3); // 3フロアごとに1行増やす
@@ -449,6 +461,12 @@ export const game = {
         const REVELATION_THRESHOLD = 0.5; // 50%の開示率
         const currentRevelationRate = this.calculateRevelationRate();
 
+        // NEW: フロアクリア時に開示率を記録
+        this.floorRevelationRates.push({
+            floor: this.floorNumber,
+            rate: currentRevelationRate
+        });
+
         if (currentRevelationRate < REVELATION_THRESHOLD) {
             this.lastActionMessage = `フロア開示率が${(REVELATION_THRESHOLD * 100).toFixed(0)}%未満のため、アイテムボーナスはありませんでした。（${(currentRevelationRate * 100).toFixed(0)}%）`;
             this.floorNumber++;
@@ -506,11 +524,24 @@ export const game = {
 
   gameLoop: function() {
     if (this.isGameOver) {
+        // NEW: ゲームオーバー時にリザルト情報をセット
+        this.finalFloorNumber = this.floorNumber;
+        this.finalItems = [...this.player.items]; // アイテムのコピーを保存
+
         return {
             displayState: this.getDisplayState(),
             message: '!!! GAME OVER !!!',
             gameOver: true,
             gameState: 'gameover',
+            // NEW: リザルト情報を追加
+            result: {
+                floorRevelationRates: this.floorRevelationRates,
+                finalFloorNumber: this.finalFloorNumber,
+                finalItems: this.finalItems.reduce((counts, id) => {
+                    counts[id] = (counts[id] || 0) + 1;
+                    return counts;
+                }, {})
+            }
         };
     }
 

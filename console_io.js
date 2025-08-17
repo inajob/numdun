@@ -66,12 +66,7 @@ export function initConsoleGame() {
 function runConsoleGameLoop() {
     const gameResult = game.gameLoop();
 
-    if (gameResult.gameOver) {
-        displayGridConsole(gameResult.displayState);
-        print(gameResult.message);
-        rl.close();
-        return;
-    }
+    if (gameResult.gameOver) {        displayGridConsole(gameResult.displayState);        print(gameResult.message);        // NEW: リザルト情報を表示        print('\n--- Game Over Result ---');        print(`最終到達フロア: ${gameResult.result.finalFloorNumber}`);        print(`所持アイテム: ${gameResult.result.finalItems.join(', ') || 'なし'}`);        print('各フロアの開示率:');        if (gameResult.result.floorRevelationRates.length > 0) {            gameResult.result.floorRevelationRates.forEach(fr => {                print(`  フロア ${fr.floor}: ${(fr.rate * 100).toFixed(2)}%`);            });        } else {            print('  なし');        }        print('------------------------');        rl.close();        return;    }
 
     if (gameResult.prompt) {
         displayGridConsole(gameResult.displayState);
