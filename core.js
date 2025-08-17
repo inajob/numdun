@@ -17,20 +17,46 @@ export const game = {
   floorNumber: 1,
   turn: 0,
   gameState: 'playing', // playing, choosing_item, jumping_direction, gameover
-  isGameOver: false,
-  exitRevealedThisFloor: false, // NEW: 出口の地図がこのフロアで使われたか
+  exitRevealedThisFloor: false, 
   REVELATION_THRESHOLD: 0.5, // 開示率のしきい値 (50%)
-  uiEffect: null, // NEW: UIエフェクトのトリガー
+  uiEffect: null, 
   
   currentItemChoices: [],
 
-  // NEW: リザルト画面用のプロパティ
-  floorRevelationRates: [], // 各フロアの開示率を記録
-  finalFloorNumber: 0,      // 最終到達フロア
-  finalItems: [],           // ゲームオーバー時の所持アイテム
+  // リザルト画面用のプロパティを復元
+  floorRevelationRates: [],
+  finalFloorNumber: 0,
+  finalItems: [],
 
   hasItem: function(itemId) {
     return this.player.items.includes(itemId);
+  },
+
+  isValidCell: function(r, c) {
+    return r >= 0 && r < this.rows && c >= 0 && c < this.cols;
+  },
+
+  getEightDirectionsNeighbors: function(r, c) {
+    const neighbors = [];
+    for (let i = -1; i <= 1; i++) {
+      for (let j = -1; j <= 1; j++) {
+        if (i === 0 && j === 0) continue; // 自身のマスは除く
+        const nR = r + i;
+        const nC = c + j;
+        if (this.isValidCell(nR, nC)) {
+          neighbors.push({ r: nR, c: nC });
+        }
+      }
+    }
+    return neighbors;
+  },
+
+  forEachCell: function(callback) {
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        callback(this.grid[r][c], r, c);
+      }
+    }
   },
 
   setupFloor: function() {
@@ -41,10 +67,9 @@ export const game = {
     // Reset floor state
     this.turn = 0;
     this.gameState = 'playing';
-    this.isGameOver = false;
     this.exitRevealedThisFloor = false; // リセット
 
-    // NEW: ゲーム開始時にリザルト情報を初期化
+    // ゲーム開始時にリザルト情報を初期化（復元）
     if (this.floorNumber === 1) {
         this.floorRevelationRates = [];
         this.finalFloorNumber = 0;
@@ -87,25 +112,21 @@ export const game = {
       this.placeTraps(trapCount);
       this.calculateNumbers();
       
-      // Find valid cells for exit and items (adjacentTraps === 0)
       const validCells = [];
-      for (let r = 0; r < this.rows; r++) {
-        for (let c = 0; c < this.cols; c++) {
-          if (!this.grid[r][c].isTrap && this.grid[r][c].adjacentTraps === 0 && !(r === this.player.r && c === this.player.c)) {
-            validCells.push({ r, c });
-          }
+      this.forEachCell((cell, r, c) => {
+        if (!cell.isTrap && cell.adjacentTraps === 0 && !(r === this.player.r && c === this.player.c)) {
+          validCells.push({ r, c });
         }
-      }
+      });
 
-      // If no valid cells, retry grid generation
-      if (validCells.length < 2) { // Need at least 2 for exit and item
+      if (validCells.length < 2) { 
         solvable = false;
         continue;
       }
 
       // Place Exit
       const exitIndex = Math.floor(Math.random() * validCells.length);
-      const exitPos = validCells.splice(exitIndex, 1)[0]; // Pick and remove from valid cells
+      const exitPos = validCells.splice(exitIndex, 1)[0];
       this.exit.r = exitPos.r;
       this.exit.c = exitPos.c;
 
@@ -146,13 +167,11 @@ export const game = {
       const isPlayerStart = r === this.player.r && c === this.player.c;
       const isExit = r === this.exit.r && c === this.exit.c;
 
-      // プレイヤーの初期位置の周囲3x3マスには罠を配置しない
       const isNearPlayerStart = (
         r >= this.player.r - 1 && r <= this.player.r + 1 &&
         c >= this.player.c - 1 && c <= this.player.c + 1
       );
 
-      // isNearPlayerStart の条件を追加
       if (!this.grid[r][c].isTrap && !isPlayerStart && !isExit && !isNearPlayerStart) {
         this.grid[r][c].isTrap = true;
         trapsPlaced++;
@@ -161,39 +180,31 @@ export const game = {
   },
 
   calculateNumbers: function() {
-    for (let r = 0; r < this.rows; r++) {
-      for (let c = 0; c < this.cols; c++) {
-        if (this.grid[r][c].isTrap) continue;
-        let trapCount = 0;
-        for (let i = -1; i <= 1; i++) {
-          for (let j = -1; j <= 1; j++) {
-            if (i === 0 && j === 0) continue;
-            const nR = r + i, nC = c + j;
-            if (nR >= 0 && nR < this.rows && nC >= 0 && nC < this.cols && this.grid[nR][nC].isTrap) {
+    this.forEachCell((cell, r, c) => {
+      if (cell.isTrap) return;
+      let trapCount = 0;
+      const neighbors = this.getEightDirectionsNeighbors(r, c);
+      for (const neighbor of neighbors) {
+          if (this.grid[neighbor.r][neighbor.c].isTrap) {
               trapCount++;
-            }
           }
-        }
-        this.grid[r][c].adjacentTraps = trapCount;
       }
-    }
+      cell.adjacentTraps = trapCount;
+    });
   },
 
   revealFrom: function(r, c) {
-    if (r < 0 || r >= this.rows || c < 0 || c >= this.cols || this.grid[r][c].isRevealed) return;
+    if (!this.isValidCell(r, c) || this.grid[r][c].isRevealed) return;
     this.grid[r][c].isRevealed = true;
 
     if (this.grid[r][c].adjacentTraps === 0) {
-      for (let i = -1; i <= 1; i++) {
-        for (let j = -1; j <= 1; j++) {
-          if (i === 0 && j === 0) continue;
-          this.revealFrom(r + i, c + j);
+      const neighbors = this.getEightDirectionsNeighbors(r, c);
+        for (const neighbor of neighbors) {
+            this.revealFrom(neighbor.r, neighbor.c);
         }
-      }
     }
   },
 
-  // NEW: 盤面が解けるかどうかをチェックする関数 (BFSを使用)
   isSolvable: function(startR, startC, endR, endC, grid) {
     const rows = grid.length;
     const cols = grid[0].length;
@@ -219,7 +230,7 @@ export const game = {
         const nr = r + dr[i];
         const nc = c + dc[i];
 
-        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && !visited[nr][nc] && !grid[nr][nc].isTrap) {
+        if (this.isValidCell(nr, nc) && !visited[nr][nc] && !grid[nr][nc].isTrap) {
           visited[nr][nc] = true;
           queue.push({ r: nr, c: nc });
         }
@@ -228,7 +239,6 @@ export const game = {
     return false;
   },
 
-  // NEW: 初期配置でゴールがプレイヤーに見えていないかを確認する関数
   isGoalInitiallyVisible: function(startR, startC, exitR, exitC, grid) {
       const rows = grid.length;
       const cols = grid[0].length;
@@ -245,19 +255,17 @@ export const game = {
       while (queue.length > 0) {
           const { r, c } = queue.shift();
 
-          // Check if any neighbor of the current cell is the exit (new logic for exit visibility)
           for (let i = -1; i <= 1; i++) {
               for (let j = -1; j <= 1; j++) {
                   if (i === 0 && j === 0) continue;
                   const nr = r + i;
                   const nc = c + j;
-                  if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                  if (this.isValidCell(nr, nc)) {
                       if (nr === exitR && nc === exitC) return true; // Exit is visible!
                   }
               }
           }
 
-          // If this cell has traps nearby, it stops the cascade
           if (grid[r][c].adjacentTraps > 0 && !(r === startR && c === startC)) {
               continue;
           }
@@ -266,7 +274,7 @@ export const game = {
               const nr = r + dr[i];
               const nc = c + dc[i];
 
-              if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && !visited[nr][nc] && !grid[nr][nc].isTrap) {
+              if (this.isValidCell(nr, nc) && !visited[nr][nc] && !grid[nr][nc].isTrap) {
                   visited[nr][nc] = true;
                   queue.push({ r: nr, c: nc });
               }
@@ -275,16 +283,13 @@ export const game = {
       return false; // Exit is not visible
   },
 
-  // NEW: フロアの開示率を計算する関数
   calculateRevelationRate: function() {
       let revealedCount = 0;
-      for (let r = 0; r < this.rows; r++) {
-          for (let c = 0; c < this.cols; c++) {
-              if (this.grid[r][c].isRevealed) {
-                  revealedCount++;
-              }
+      this.forEachCell((cell) => {
+          if (cell.isRevealed) {
+              revealedCount++;
           }
-      }
+      });
       return revealedCount / (this.rows * this.cols);
   },
 
@@ -292,32 +297,28 @@ export const game = {
     return {
       grid: this.grid,
       player: { r: this.player.r, c: this.player.c },
-      exit: this.exit, // 常に出口の座標を渡す
+      exit: this.exit, 
       floorNumber: this.floorNumber,
-      items: this.player.items, // IDの配列をそのまま渡す
+      items: this.player.items, 
       turn: this.turn,
       gameState: this.gameState,
-      isGameOver: this.isGameOver,
       currentItemChoices: this.currentItemChoices,
-      exitRevealedThisFloor: this.exitRevealedThisFloor, // 地図の使用状況を渡す
+      exitRevealedThisFloor: this.exitRevealedThisFloor, 
     };
   },
 
   handleInput: function(key) {
     key = key.toLowerCase();
 
-    // アイテム選択状態の処理
     if (this.gameState === 'choosing_item') {
       const selectedIndex = parseInt(key, 10) - 1;
       if (selectedIndex >= 0 && selectedIndex < this.currentItemChoices.length) {
         const chosenId = this.currentItemChoices[selectedIndex];
         this.player.items.push(chosenId);
       }
-      // 選択後は次のフロアへ
       return { action: 'next_floor_after_delay' };
     }
 
-    // ジャンプ方向入力待ち状態の処理
     if (this.gameState === 'jumping_direction') {
       let jumpRow = this.player.r;
       let jumpCol = this.player.c;
@@ -330,8 +331,7 @@ export const game = {
         case 'd': jumpCol += 2; jumped = true; break;
       }
 
-      if (jumped && jumpRow >= 0 && jumpRow < this.rows && jumpCol >= 0 && jumpCol < this.cols) {
-        // ジャンプ成功時にアイテムを消費
+      if (jumped && this.isValidCell(jumpRow, jumpCol)) {
         const itemIndex = this.player.items.indexOf('long_jump');
         if (itemIndex > -1) {
             this.player.items.splice(itemIndex, 1);
@@ -340,22 +340,20 @@ export const game = {
         this.player.r = jumpRow;
         this.player.c = jumpCol;
         this.gameState = 'playing';
-        this.processPlayerLocation(); // ジャンプ後の共通処理を実行
-        return this.gameLoop(); // ジャンプ処理が完了したらここで終了
+        this.processPlayerLocation();
+        return this.gameLoop();
       } else {
-        this.gameState = 'playing'; // 無効な入力なら通常状態に
+        this.gameState = 'playing';
         return this.gameLoop();
       }
     }
 
-    // 通常のゲームプレイ状態
     if (this.gameState === 'playing') {
       let newRow = this.player.r;
       let newCol = this.player.c;
       let moved = false;
       let itemUsed = false;
 
-      // アイテム使用キーの処理
       const itemToUse = Object.keys(ITEMS).find(id => ITEMS[id].key === key);
       if (itemToUse && this.hasItem(itemToUse)) {
           itemUsed = true;
@@ -363,69 +361,41 @@ export const game = {
           
           switch(itemToUse) {
               case 'reveal_one_trap':
-                  // プレイヤーの周囲8マスを対象にすべて明らかにする
-                  for (let i = -1; i <= 1; i++) {
-                      for (let j = -1; j <= 1; j++) {
-                          if (i === 0 && j === 0) continue; // プレイヤー自身のマスは除く
-                          const checkR = this.player.r + i;
-                          const checkC = this.player.c + j;
-
-                          if (checkR >= 0 && checkR < this.rows && checkC >= 0 && checkC < this.cols) {
-                              // 罠かどうかに関わらず、そのマスを開示する
-                              // revealFrom を使うことで、0のマスなら連鎖的に開示される
-                              const cell = this.grid[checkR][checkC];
-                              if (cell.isTrap) {
-                                cell.isRevealed = true;
-                              }else{
-                                this.revealFrom(checkR, checkC);
-                              }
-                          }
+                  const neighborsToReveal = this.getEightDirectionsNeighbors(this.player.r, this.player.c);
+                  for (const neighbor of neighborsToReveal) {
+                      const cell = this.grid[neighbor.r][neighbor.c];
+                      if (cell.isTrap) {
+                          cell.isRevealed = true;
+                      } else {
+                          this.revealFrom(neighbor.r, neighbor.c);
                       }
                   }
-                  this.player.items.splice(itemIndex, 1); // アイテムを消費
+                  this.player.items.splice(itemIndex, 1);
                   break;
               case 'reduce_traps':
-                  // プレイヤーの周囲8マスにある罠のリストを作成
-                  const trapsInVicinity = [];
-                  for (let i = -1; i <= 1; i++) {
-                      for (let j = -1; j <= 1; j++) {
-                          if (i === 0 && j === 0) continue; // プレイヤー自身のマスは除く
-                          const checkR = this.player.r + i;
-                          const checkC = this.player.c + j;
-
-                          if (checkR >= 0 && checkR < this.rows && checkC >= 0 && checkC < this.cols) {
-                              const cell = this.grid[checkR][checkC];
-                              if (cell.isTrap) {
-                                  trapsInVicinity.push({ r: checkR, c: checkC });
-                              }
-                          }
-                      }
-                  }
+                  const neighborsForTrapCheck = this.getEightDirectionsNeighbors(this.player.r, this.player.c);
+                  const trapsInVicinity = neighborsForTrapCheck.filter(cellPos => this.grid[cellPos.r][cellPos.c].isTrap);
 
                   if (trapsInVicinity.length > 0) {
-                      // 周囲に罠がある場合、ランダムに1つ選択して解体
                       const trapToDemolish = trapsInVicinity[Math.floor(Math.random() * trapsInVicinity.length)];
                       this.grid[trapToDemolish.r][trapToDemolish.c].isTrap = false;
-                      this.calculateNumbers(); // 数字を再計算
+                      this.calculateNumbers();
                   }
-                  this.player.items.splice(itemIndex, 1); // アイテムを消費
+                  this.player.items.splice(itemIndex, 1);
                   break;
               case 'reveal_exit':
-                  if (!this.exitRevealedThisFloor) { // 既に表示されていなければ
+                  if (!this.exitRevealedThisFloor) { 
                       this.exitRevealedThisFloor = true;
-                      this.player.items.splice(itemIndex, 1); // アイテムを消費
+                      this.player.items.splice(itemIndex, 1);
                   } else {
-                      // 既に表示されている場合は何もせず、アイテムも消費しない
-                      itemUsed = false; // アイテムが使われなかったことを示す
+                      itemUsed = false;
                   }
                   break; 
               case 'long_jump':
                   this.gameState = 'jumping_direction';
-                  // アイテムはジャンプ成功時に消費
                   break;
           }
       } else {
-          // 移動キーの処理
           switch (key) {
             case 'w': newRow--; moved = true; break;
             case 'a': newCol--; moved = true; break;
@@ -435,17 +405,17 @@ export const game = {
       }
 
       if (moved) {
-        if (newRow >= 0 && newRow < this.rows && newCol >= 0 && newCol < this.cols) {
+        if (this.isValidCell(newRow, newCol)) {
           this.player.r = newRow;
           this.player.c = newCol;
         } else {
-          return this.gameLoop(); // 壁の外なら何もしない
+          return this.gameLoop();
         }
       }
       
       if (moved || itemUsed) {
           this.turn++;
-          this.processPlayerLocation(); // 移動またはアイテム使用後の共通処理を実行
+          this.processPlayerLocation();
       }
     }
     
@@ -453,59 +423,51 @@ export const game = {
   },
 
   processPlayerLocation: function() {
-      // 移動・ジャンプ後の共通処理
       const currentCell = this.grid[this.player.r][this.player.c];
 
-      // 1. 出口判定
       if (this.player.r === this.exit.r && this.player.c === this.exit.c) {
-        const REVELATION_THRESHOLD = 0.5; // 50%の開示率
         const currentRevelationRate = this.calculateRevelationRate();
 
-        // NEW: フロアクリア時に開示率を記録
+        // 開示率の記録を復元
         this.floorRevelationRates.push({
             floor: this.floorNumber,
             rate: currentRevelationRate
         });
 
-        if (currentRevelationRate < REVELATION_THRESHOLD) {
-            this.lastActionMessage = `フロア開示率が${(REVELATION_THRESHOLD * 100).toFixed(0)}%未満のため、アイテムボーナスはありませんでした。（${(currentRevelationRate * 100).toFixed(0)}%）`;
+        if (currentRevelationRate < this.REVELATION_THRESHOLD) {
+            this.lastActionMessage = `フロア開示率が${(this.REVELATION_THRESHOLD * 100).toFixed(0)}%未満のため、アイテムボーナスはありませんでした。（${(currentRevelationRate * 100).toFixed(0)}%）`;
             this.floorNumber++;
             this.setupFloor();
         } else {
             this.gameState = 'choosing_item';
             this.showItemChoiceScreen();
         }
-        return; // 共通処理の終了
+        return; 
       }
 
-      // 2. 罠判定
       if (currentCell.isTrap) {
         if (this.hasItem('trap_shield')) {
           const index = this.player.items.indexOf('trap_shield');
           this.player.items.splice(index, 1);
           currentCell.isTrap = false;
           this.calculateNumbers();
-          this.revealFrom(this.player.r, this.player.c); // 鉄の心臓発動時に再帰的に開示
-          this.uiEffect = 'flash_red'; // NEW: UIエフェクトのトリガー
-          // メッセージを設定
+          this.revealFrom(this.player.r, this.player.c);
+          this.uiEffect = 'flash_red';
           this.lastActionMessage = '鉄の心臓が身代わりになった！';
         } else {
           currentCell.isRevealed = true;
-          this.isGameOver = true;
           this.gameState = 'gameover';
           this.lastActionMessage = '罠を踏んでしまった！';
         }
       }
 
-      // 3. アイテム取得判定
       if (currentCell.hasItem) {
         this.player.items.push(currentCell.itemId);
         currentCell.hasItem = false;
         currentCell.itemId = null;
       }
       
-      // 4. マスを開ける
-      if(!this.isGameOver) {
+      if(this.gameState !== 'gameover') {
           this.revealFrom(this.player.r, this.player.c);
       }
   },
@@ -523,17 +485,16 @@ export const game = {
   },
 
   gameLoop: function() {
-    if (this.isGameOver) {
-        // NEW: ゲームオーバー時にリザルト情報をセット
+    if (this.gameState === 'gameover') {
+        // ゲームオーバー時のリザルト情報セットを復元
         this.finalFloorNumber = this.floorNumber;
-        this.finalItems = [...this.player.items]; // アイテムのコピーを保存
+        this.finalItems = [...this.player.items];
 
         return {
             displayState: this.getDisplayState(),
             message: '!!! GAME OVER !!!',
-            gameOver: true,
             gameState: 'gameover',
-            // NEW: リザルト情報を追加
+            // リザルト情報を戻り値に追加（復元）
             result: {
                 floorRevelationRates: this.floorRevelationRates,
                 finalFloorNumber: this.finalFloorNumber,
@@ -548,7 +509,7 @@ export const game = {
     let promptText = 'Move (w/a/s/d)';
     const itemActions = this.player.items
         .map(id => ITEMS[id])
-        .filter(item => item.key) // キーが設定されているアイテムのみ
+        .filter(item => item.key)
         .map(item => `${item.key}: ${item.name}`);
 
     if (itemActions.length > 0) {
@@ -567,9 +528,8 @@ export const game = {
       displayState: this.getDisplayState(),
       prompt: promptText,
       message: message,
-      lastActionMessage: this.lastActionMessage, // NEW: 直前の行動メッセージ
-      uiEffect: this.uiEffect, // NEW: UIエフェクト
-      gameOver: this.isGameOver,
+      lastActionMessage: this.lastActionMessage,
+      uiEffect: this.uiEffect,
       gameState: this.gameState,
     };
   }
@@ -584,5 +544,3 @@ game.clearLastActionMessage = function() {
 game.clearUiEffect = function() {
     this.uiEffect = null;
 };
-
-

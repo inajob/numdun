@@ -5,6 +5,22 @@ let selectedChoiceIndex = 0; // For keyboard selection on item choice screen
 const INPUT_DEBOUNCE_MS = 100; // Cooldown in ms to prevent double taps
 let lastInput = { key: null, time: 0 };
 
+// Cache DOM elements to avoid repeated lookups
+const dom = {
+    gameGrid: document.getElementById('game-grid'),
+    controls: document.getElementById('controls'),
+    itemSelectionScreen: document.getElementById('item-selection-screen'),
+    gameStatus: document.getElementById('game-status'),
+    inventoryScreen: document.getElementById('inventory-screen'),
+    actionPrompt: document.getElementById('action-prompt'),
+    resultScreen: document.getElementById('result-screen'),
+    itemList: document.getElementById('item-list'),
+    floorNumber: document.getElementById('floor-number'),
+    revelationStatus: document.getElementById('revelation-status'),
+    gameContainer: document.getElementById('game-container'),
+    resetButton: document.getElementById('btn-reset'),
+};
+
 /**
  * Displays a short-lived notification pop-up.
  * @param {string} text The message to display.
@@ -23,13 +39,12 @@ function showNotification(text, duration = 3000) {
 }
 
 function renderGridToDom(displayState) {
-    const gameGridDiv = document.getElementById('game-grid');
-    gameGridDiv.innerHTML = ''; // Clear previous grid
+    dom.gameGrid.innerHTML = ''; // Clear previous grid
 
     // Calculate dynamic cell size
     const gridGap = 2; // From CSS --grid-gap
     const totalGridGapWidth = (displayState.grid[0].length - 1) * gridGap;
-    const availableWidth = gameGridDiv.clientWidth || window.innerWidth * 0.9; // Use container width or a percentage of window width
+    const availableWidth = dom.gameGrid.clientWidth || window.innerWidth * 0.9; // Use container width or a percentage of window width
     let optimalCellSize = (availableWidth - totalGridGapWidth) / displayState.grid[0].length;
 
     // Apply min/max constraints
@@ -116,7 +131,7 @@ function renderGridToDom(displayState) {
         }
         table.appendChild(row);
     }
-    gameGridDiv.appendChild(table);
+    dom.gameGrid.appendChild(table);
 }
 
 function isInputDebounced(key) {
@@ -130,10 +145,16 @@ function isInputDebounced(key) {
 }
 
 function handleGlobalKeyboardInput(event) {
-    if (game.isGameOver) return;
+    // Convert arrow keys to wasd at the beginning for consistent handling
+    let key = event.key.toLowerCase();
+    switch (event.key) {
+        case 'ArrowUp': key = 'w'; break;
+        case 'ArrowDown': key = 's'; break;
+        case 'ArrowLeft': key = 'a'; break;
+        case 'ArrowRight': key = 'd'; break;
+    }
 
     let handled = true;
-    const key = event.key.toLowerCase();
 
     if (game.gameState === 'choosing_item') {
         event.preventDefault();
@@ -144,12 +165,10 @@ function handleGlobalKeyboardInput(event) {
 
         switch (key) {
             case 'w':
-            case 'arrowup':
                 selectedChoiceIndex = (selectedChoiceIndex > 0) ? selectedChoiceIndex - 1 : choices.length - 1;
                 updateChoiceHighlight();
                 break;
             case 's':
-            case 'arrowdown':
                 selectedChoiceIndex = (selectedChoiceIndex < choices.length - 1) ? selectedChoiceIndex + 1 : 0;
                 updateChoiceHighlight();
                 break;
@@ -165,35 +184,21 @@ function handleGlobalKeyboardInput(event) {
         }
 
     } else if (game.gameState === 'jumping_direction') {
-        let moveKey = key;
-        switch (event.key) {
-            case 'ArrowUp': moveKey = 'w'; break;
-            case 'ArrowDown': moveKey = 's'; break;
-            case 'ArrowLeft': moveKey = 'a'; break;
-            case 'ArrowRight': moveKey = 'd'; break;
-        }
-        if ('wasd'.includes(moveKey)) {
-            if (isInputDebounced(moveKey)) return;
-            processBrowserInput(moveKey);
+        if ('wasd'.includes(key)) {
+            if (isInputDebounced(key)) return;
+            processBrowserInput(key);
         } else {
             handled = false;
         }
     } else if (game.gameState === 'playing') {
-        let moveKey = key;
-        switch (event.key) {
-            case 'ArrowUp': moveKey = 'w'; break;
-            case 'ArrowDown': moveKey = 's'; break;
-            case 'ArrowLeft': moveKey = 'a'; break;
-            case 'ArrowRight': moveKey = 'd'; break;
-        }
-
-        if ('wasdretj'.includes(moveKey)) {
-            if (isInputDebounced(moveKey)) return;
-            processBrowserInput(moveKey);
+        if ('wasdretj'.includes(key)) {
+            if (isInputDebounced(key)) return;
+            processBrowserInput(key);
         } else {
             handled = false;
         }
     } else {
+        // For 'gameover' or any other state, do not handle input
         handled = false;
     }
 
@@ -216,55 +221,44 @@ function runBrowserGameLoop() {
     const gameResult = game.gameLoop();
     const displayState = gameResult.displayState;
 
-    const gameGrid = document.getElementById('game-grid');
-    const controls = document.getElementById('controls');
-    const itemSelectionScreen = document.getElementById('item-selection-screen');
-    const gameStatus = document.getElementById('game-status');
-    const inventoryScreen = document.getElementById('inventory-screen');
-    const actionPrompt = document.getElementById('action-prompt');
-    const resultScreen = document.getElementById('result-screen'); // この行を追加する
-
     // Hide all screens by default, then show the correct one
-    // gameGrid.style.display = 'none'; // ゲームオーバー時は表示したままにするためコメントアウト
-    controls.style.display = 'none';
-    itemSelectionScreen.style.display = 'none';
-    inventoryScreen.style.display = 'none';
-    gameStatus.style.display = 'none';
-    actionPrompt.style.display = 'none';
-    resultScreen.style.display = 'none'; // ここは維持
+    dom.controls.style.display = 'none';
+    dom.itemSelectionScreen.style.display = 'none';
+    dom.inventoryScreen.style.display = 'none';
+    dom.gameStatus.style.display = 'none';
+    dom.actionPrompt.style.display = 'none';
+    dom.resultScreen.style.display = 'none';
 
     if (gameResult.gameState === 'choosing_item') {
-        gameStatus.style.display = 'flex';
-        itemSelectionScreen.style.display = 'block';
+        dom.gameStatus.style.display = 'flex';
+        dom.itemSelectionScreen.style.display = 'block';
         renderItemSelectionScreen(displayState.currentItemChoices);
-    } else if (gameResult.gameOver) {
-        // ゲームオーバー時はゲームグリッドを表示したままにする
-        gameGrid.style.display = 'flex'; // 盤面を表示
-        renderGridToDom(displayState); // 最終状態のグリッドをレンダリング
+    } else if (gameResult.gameState === 'gameover') {
+        // On game over, keep the grid visible
+        dom.gameGrid.style.display = 'flex';
+        renderGridToDom(displayState); // Render the final grid state
 
-        // リザルト画面を表示
+        // Render the result screen
         renderResultScreen(gameResult.result);
-        resultScreen.style.display = 'flex';
+        dom.resultScreen.style.display = 'flex';
 
-        // コントロールボタンを無効化
+        // Disable control buttons, except for reset
         document.querySelectorAll('.control-btn').forEach(b => {
-            if (b.id !== 'btn-reset') { // リセットボタン以外
+            if (b.id !== 'btn-reset') {
                 b.style.pointerEvents = 'none';
                 b.style.backgroundColor = '#333';
             }
         });
-        // ゲームオーバー時はゲームステータスとアクションプロンプトは非表示
-        gameStatus.style.display = 'none';
-        actionPrompt.style.display = 'none';
+        dom.gameStatus.style.display = 'none';
+        dom.actionPrompt.style.display = 'none';
 
     } else {
-        gameGrid.style.display = 'flex';
-        controls.style.display = 'grid';
-        gameStatus.style.display = 'flex';
+        dom.gameGrid.style.display = 'flex';
+        dom.controls.style.display = 'grid';
+        dom.gameStatus.style.display = 'flex';
 
         renderGridToDom(displayState);
 
-        const itemListDiv = document.getElementById('item-list');
         let itemsHtml = '<strong>Items:</strong> ';
         const itemCounts = (displayState.items || []).reduce((counts, id) => {
             counts[id] = (counts[id] || 0) + 1;
@@ -288,18 +282,17 @@ function runBrowserGameLoop() {
                 return `${itemName} x${count}`;
             }).join(', ');
         }
-        itemListDiv.innerHTML = itemsHtml;
+        dom.itemList.innerHTML = itemsHtml;
 
-        document.getElementById('floor-number').textContent = `Floor: ${displayState.floorNumber}`;
+        dom.floorNumber.textContent = `Floor: ${displayState.floorNumber}`;
 
-        const revelationStatusDiv = document.getElementById('revelation-status');
         const currentRevelationRate = game.calculateRevelationRate();
         if (currentRevelationRate >= game.REVELATION_THRESHOLD) {
-            revelationStatusDiv.textContent = '開示率: 達成';
-            revelationStatusDiv.style.color = '#4CAF50';
+            dom.revelationStatus.textContent = '開示率: 達成';
+            dom.revelationStatus.style.color = '#4CAF50';
         } else {
-            revelationStatusDiv.textContent = '開示率: 未達成';
-            revelationStatusDiv.style.color = '#F44336';
+            dom.revelationStatus.textContent = '開示率: 未達成';
+            dom.revelationStatus.style.color = '#F44336';
         }
 
         // Handle messages based on their type
@@ -310,17 +303,17 @@ function runBrowserGameLoop() {
 
         if (gameResult.gameState === 'jumping_direction') {
             if (gameResult.message) {
-                actionPrompt.textContent = gameResult.message;
-                actionPrompt.style.display = 'block';
+                dom.actionPrompt.textContent = gameResult.message;
+                dom.actionPrompt.style.display = 'block';
             }
         } else if (gameResult.message && gameResult.gameState !== 'choosing_item') {
             showNotification(gameResult.message);
         }
 
         if (gameResult.uiEffect === 'flash_red') {
-        flashScreenRed();
-        game.clearUiEffect(); // エフェクトをクリア
-    }
+            flashScreenRed();
+            game.clearUiEffect(); // エフェクトをクリア
+        }
     }
 }
 
@@ -328,9 +321,9 @@ function runBrowserGameLoop() {
  * Makes the screen flash red briefly.
  */
 function flashScreenRed() {
-    document.getElementById('game-container').classList.add('flash-red');
+    dom.gameContainer.classList.add('flash-red');
     setTimeout(() => {
-        document.getElementById('game-container').classList.remove('flash-red');
+        dom.gameContainer.classList.remove('flash-red');
     }, 200); // Flash for 200ms
 }
 
@@ -376,7 +369,7 @@ function renderResultScreen(result) {
 }
 
 function renderItemSelectionScreen(choices) {
-    const screen = document.getElementById('item-selection-screen');
+    const screen = dom.itemSelectionScreen;
     screen.innerHTML = '<h2>Floor Cleared! Choose a reward:</h2>';
     selectedChoiceIndex = 0;
 
@@ -397,7 +390,7 @@ function renderItemSelectionScreen(choices) {
                 button.addEventListener('touchstart', action, { passive: false });
 
                 screen.appendChild(button);
-            } 
+            }
         });
         updateChoiceHighlight();
     }
@@ -443,24 +436,23 @@ function showInventoryScreen() {
         return;
     }
 
-    document.getElementById('game-grid').style.display = 'none';
-    document.getElementById('controls').style.display = 'none';
-    document.getElementById('game-status').style.display = 'none';
-    const inventoryScreen = document.getElementById('inventory-screen');
-    inventoryScreen.style.display = 'block';
+    dom.gameGrid.style.display = 'none';
+    dom.controls.style.display = 'none';
+    dom.gameStatus.style.display = 'none';
+    dom.inventoryScreen.style.display = 'block';
 
     renderInventoryScreen(usableItems);
 }
 
 function renderInventoryScreen(usableItems) {
-    const screen = document.getElementById('inventory-screen');
+    const screen = dom.inventoryScreen;
     screen.innerHTML = '<h2>Use Item</h2>';
 
     const hideAndShowGame = () => {
         screen.style.display = 'none';
-        document.getElementById('game-grid').style.display = 'flex';
-        document.getElementById('controls').style.display = 'grid';
-        document.getElementById('game-status').style.display = 'flex';
+        dom.gameGrid.style.display = 'flex';
+        dom.controls.style.display = 'grid';
+        dom.gameStatus.style.display = 'flex';
     };
 
     usableItems.forEach(item => {
@@ -495,11 +487,16 @@ function renderInventoryScreen(usableItems) {
 export function initBrowserGame() {
     document.addEventListener('keydown', handleGlobalKeyboardInput);
     setupControlButtons();
-    // NEW: リセットボタンのイベントリスナーを設定
-    document.getElementById('btn-reset').addEventListener('click', () => {
-        game.floorNumber = 1; // フロアをリセット
-        game.setupFloor(); // ゲームを再開
-        runBrowserGameLoop(); // UIを更新
+    dom.resetButton.addEventListener('click', () => {
+        game.floorNumber = 1;
+        game.player.items = []; // Reset items on new game
+        game.setupFloor();
+        runBrowserGameLoop();
+        // Re-enable buttons on reset
+        document.querySelectorAll('.control-btn').forEach(b => {
+            b.style.pointerEvents = 'auto';
+            b.style.backgroundColor = ''; // Reset to default
+        });
     });
     game.setupFloor();
     runBrowserGameLoop();

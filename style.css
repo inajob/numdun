@@ -29,7 +29,7 @@ body {
     padding: 10px;
     background-color: #222;
     box-sizing: border-box;
-    position: relative; /* NEW: 子要素のabsolute配置の基準にする */
+    /* position: relative; */ /* REMOVED */
     display: flex; /* NEW: 子要素をflexboxで配置 */
     flex-direction: column; /* NEW: 子要素を縦に並べる */
     align-items: center; /* NEW: 子要素を中央揃え */
@@ -274,14 +274,7 @@ h1 {
     display: flex; /* NEW: Flexコンテナとして扱う */
     flex-direction: column; /* NEW: 子要素を縦に並べる */
     align-items: center; /* NEW: 子要素を中央揃えにする (任意) */
-    /* position: absolute; */ /* REMOVED */
-    /* top: 0; */ /* REMOVED */
-    /* left: 0; */ /* REMOVED */
-    /* width: 100%; */ /* REMOVED */
-    /* height: 100%; */ /* REMOVED */
-    background-color: rgba(0, 0, 0, 0.7); /* 半透明の背景 */
-    /* z-index: 100; */ /* REMOVED */
-    /* justify-content: center; */ /* REMOVED */
+    background-color: transparent; /* 半透明の背景を透明に */
     margin-top: 20px; /* 盤面との間にスペースを設ける */
 }
 
