@@ -488,6 +488,7 @@ export function initBrowserGame() {
     document.addEventListener('keydown', handleGlobalKeyboardInput);
     setupControlButtons();
     dom.resetButton.addEventListener('click', () => {
+        game.clearLastActionMessage(); // Clear any lingering messages
         game.floorNumber = 1;
         game.player.items = []; // Reset items on new game
         game.setupFloor();

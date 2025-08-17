@@ -9,10 +9,11 @@ body {
     color: #eee;
     display: flex;
     justify-content: center;
-    align-items: center;
-    height: 100vh;
+    align-items: flex-start; /* Changed from center to flex-start */
+    min-height: 100vh; /* Changed from height to min-height */
     margin: 0;
     touch-action: manipulation; /* Disable double-tap to zoom */
+    overflow-y: auto; /* Allow vertical scrolling if content overflows */
 }
 #game-wrapper {
     display: flex;
