@@ -492,10 +492,10 @@ export function initBrowserGame() {
         game.player.items = []; // Reset items on new game
         game.setupFloor();
         runBrowserGameLoop();
-        // Re-enable buttons on reset
+        // Re-enable control buttons on reset
         document.querySelectorAll('.control-btn').forEach(b => {
             b.style.pointerEvents = 'auto';
-            b.style.backgroundColor = ''; // Reset to default
+            b.style.backgroundColor = ''; // Reset to default color
         });
     });
     game.setupFloor();
