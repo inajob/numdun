@@ -203,6 +203,7 @@ export const game = {
   revealFrom: function(r, c) {
     if (!this.isValidCell(r, c) || this.grid[r][c].isRevealed) return;
     this.grid[r][c].isRevealed = true;
+    this.grid[r][c].isFlagged = false;
 
     if (this.grid[r][c].adjacentTraps === 0) {
       const neighbors = this.getEightDirectionsNeighbors(r, c);
@@ -383,6 +384,7 @@ export const game = {
                       const cell = this.grid[neighbor.r][neighbor.c];
                       if (cell.isTrap) {
                           cell.isRevealed = true;
+                          cell.isFlagged = false;
                       } else {
                           this.revealFrom(neighbor.r, neighbor.c);
                       }
