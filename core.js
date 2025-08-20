@@ -1,11 +1,19 @@
 // core.js
 
 export const ITEMS = {
-  reveal_one_trap: { name: '千里眼の巻物', description: 'プレイヤーの周囲8マスにある罠をすべて明らかにする。', key: 'r' },
-  trap_shield: { name: '鉄の心臓', description: '罠を踏んだ時に1度だけ身代わりになる。(パッシブ)', key: null },
-  reduce_traps: { name: '解体の手引き', description: 'ランダムな罠1つを無効化する。', key: 't' },
-  reveal_exit: { name: '出口の地図', description: '出口の位置を明らかにする。', key: 'e' },
-  long_jump: { name: '跳躍のブーツ', description: '指定した方向に1マス飛び越えて、2マス先に進む。', key: 'j' },
+  // 通常アイテム (F1+)
+  reveal_one_trap: { name: '千里眼の巻物', description: 'プレイヤーの周囲8マスにある罠をすべて明らかにする。', key: 'r', minFloor: 1, maxFloor: Infinity },
+  trap_shield: { name: '鉄の心臓', description: '罠を踏んだ時に1度だけ身代わりになる。(パッシブ)', key: null, minFloor: 1, maxFloor: Infinity },
+  reduce_traps: { name: '解体の手引き', description: 'ランダムな罠1つを無効化する。', key: 't', minFloor: 1, maxFloor: 10 },
+  reveal_exit: { name: '出口の地図', description: '現在のフロアの出口(E)の位置を明らかにする。', key: 'e', minFloor: 1, maxFloor: 8 },
+  long_jump: { name: '跳躍のブーツ', description: '指定した方向に1マス飛び越えて、2マス先に進む。', key: 'j', minFloor: 1, maxFloor: Infinity },
+  // 拡張アイテム (F5+)
+  recon_drone: { name: '偵察ドローン', description: '使用時、上下左右のいずれかの方向を指定する。ドローンがその方向へ一直線に飛び、通路（数字が書かれたマス）を次々と開示していく。もし進路上に罠があった場合、その罠を開示して停止する。', key: 'c', minFloor: 5, maxFloor: Infinity },
+  ariadnes_thread: { name: 'アリアドネの糸', description: '使用すると、プレイヤーから出口までの「最短経路」がマップ上に示される。経路上のマスはすべて開示されるが、そこにある罠もすべて表示される。', key: 'g', minFloor: 5, maxFloor: Infinity },
+  detailed_map_of_exit: { name: '詳細な出口の地図', description: '出口の位置を明らかにすると同時に、出口に隣接する周囲8マスの状態もすべて開示する。', key: 'x', minFloor: 5, maxFloor: Infinity },
+  // 上位アイテム (F10+)
+  philosophers_stone: { name: '賢者の石', description: '使用すると、プレイヤーの周囲5x5の広大な範囲を一度に開示する。', key: 'p', minFloor: 10, maxFloor: Infinity },
+  scroll_of_chaos: { name: '無秩序の巻物', description: '使用すると、まだ開示もフラグもされていない全てのマスで、罠の配置をシャッフル（再配置）する。罠の総数は変わらない。', key: 'k', minFloor: 10, maxFloor: Infinity },
 };
 
 export const game = {
@@ -16,10 +24,11 @@ export const game = {
   exit: { r: 0, c: 0 },
   floorNumber: 1,
   turn: 0,
-  gameState: 'playing', // playing, choosing_item, jumping_direction, gameover
+  gameState: 'playing', // playing, confirm_next_floor, choosing_item, jumping_direction, recon_direction, gameover
   exitRevealedThisFloor: false, 
   REVELATION_THRESHOLD: 0.5, // 開示率のしきい値 (50%)
   uiEffect: null, 
+  justAcquiredItem: null,
   
   currentItemChoices: [],
 
@@ -27,6 +36,40 @@ export const game = {
   floorRevelationRates: [],
   finalFloorNumber: 0,
   finalItems: [],
+
+  getAvailableItems: function() {
+    const currentFloor = this.floorNumber;
+    return Object.keys(ITEMS).filter(id => {
+      const item = ITEMS[id];
+      const minFloor = item.minFloor || 1;
+      const maxFloor = item.maxFloor || Infinity;
+      return currentFloor >= minFloor && currentFloor <= maxFloor;
+    });
+  },
+
+  getLineCells: function(r0, c0, r1, c1) {
+    const cells = [];
+    const dc = Math.abs(c1 - c0);
+    const dr = -Math.abs(r1 - r0);
+    const sc = c0 < c1 ? 1 : -1;
+    const sr = r0 < r1 ? 1 : -1;
+    let err = dc + dr;
+
+    while (true) {
+        cells.push({ r: r0, c: c0 });
+        if (r0 === r1 && c0 === c1) break;
+        const e2 = 2 * err;
+        if (e2 >= dr) {
+            err += dr;
+            c0 += sc;
+        }
+        if (e2 <= dc) {
+            err += dc;
+            r0 += sr;
+        }
+    }
+    return cells;
+  },
 
   hasItem: function(itemId) {
     return this.player.items.includes(itemId);
@@ -85,12 +128,14 @@ export const game = {
     const areaBasedTrapCount = Math.floor((this.rows * this.cols) * 0.15);
     const trapCount = Math.max(baseTrapCount, areaBasedTrapCount);
 
-    // 初期アイテムを付与 (既に持っているアイテムは重複して付与しない)
-    const allItemIds = Object.keys(ITEMS);
-    const availableItems = allItemIds.filter(id => !this.player.items.includes(id));
-    if (availableItems.length > 0) {
-        const randomItemId = availableItems[Math.floor(Math.random() * availableItems.length)];
-        this.player.items.push(randomItemId);
+    // ゲーム開始時(1F)のみ、初期アイテムを付与
+    if (this.floorNumber === 1) {
+        const allAvailableItemIds = this.getAvailableItems();
+        const availableItems = allAvailableItemIds.filter(id => !this.player.items.includes(id));
+        if (availableItems.length > 0) {
+            const randomItemId = availableItems[Math.floor(Math.random() * availableItems.length)];
+            this.player.items.push(randomItemId);
+        }
     }
 
     // Generate a solvable grid
@@ -130,14 +175,24 @@ export const game = {
       this.exit.r = exitPos.r;
       this.exit.c = exitPos.c;
 
-      // Place one item
-      const placeableItems = Object.keys(ITEMS).filter(id => ITEMS[id].key !== null);
-      if (placeableItems.length > 0 && validCells.length > 0) {
-          const itemIndex = Math.floor(Math.random() * validCells.length);
-          const itemPos = validCells[itemIndex];
-          const randomItemId = placeableItems[Math.floor(Math.random() * placeableItems.length)];
-          this.grid[itemPos.r][itemPos.c].hasItem = true;
-          this.grid[itemPos.r][itemPos.c].itemId = randomItemId;
+      // Place items
+      const allPlaceableAvailable = this.getAvailableItems();
+      const placeableItems = allPlaceableAvailable.filter(id => ITEMS[id].key !== null);
+      const numberOfItemsToPlace = 2; // Number of items to place
+
+      for (let i = 0; i < numberOfItemsToPlace; i++) {
+          if (placeableItems.length > 0 && validCells.length > 0) {
+              // Choose a random, valid cell and remove it from the list to prevent reuse
+              const validCellIndex = Math.floor(Math.random() * validCells.length);
+              const itemPos = validCells.splice(validCellIndex, 1)[0]; 
+              
+              // Choose a random item to place
+              const randomItemId = placeableItems[Math.floor(Math.random() * placeableItems.length)];
+              
+              // Place the item on the grid
+              this.grid[itemPos.r][itemPos.c].hasItem = true;
+              this.grid[itemPos.r][itemPos.c].itemId = randomItemId;
+          }
       }
 
       solvable = this.isSolvable(this.player.r, this.player.c, this.exit.r, this.exit.c, this.grid);
@@ -328,16 +383,81 @@ export const game = {
   handleInput: function(key) {
     key = key.toLowerCase();
 
-    if (this.gameState === 'choosing_item') {
+    if (this.gameState === 'confirm_next_floor') {
+        if (key === 'yes') {
+            const currentRevelationRate = this.calculateRevelationRate();
+
+            this.floorRevelationRates.push({
+                floor: this.floorNumber,
+                rate: currentRevelationRate
+            });
+
+            if (currentRevelationRate < this.REVELATION_THRESHOLD) {
+                this.lastActionMessage = `フロア開示率が${(this.REVELATION_THRESHOLD * 100).toFixed(0)}%未満のため、アイテムボーナスはありませんでした。（${(currentRevelationRate * 100).toFixed(0)}%）`;
+                this.floorNumber++;
+                this.setupFloor();
+            } else {
+                this.gameState = 'choosing_item';
+                this.showItemChoiceScreen();
+            }
+        } else {
+            // 'no' or any other key (like movement) cancels the confirmation
+            this.gameState = 'playing';
+            // If the key was a movement key, it will be processed below
+        }
+    } else if (this.gameState === 'choosing_item') {
       const selectedIndex = parseInt(key, 10) - 1;
       if (selectedIndex >= 0 && selectedIndex < this.currentItemChoices.length) {
         const chosenId = this.currentItemChoices[selectedIndex];
         this.player.items.push(chosenId);
       }
       return { action: 'next_floor_after_delay' };
-    }
+    } else if (this.gameState === 'recon_direction') {
+        let dr = 0;
+        let dc = 0;
+        let directionChosen = false;
 
-    if (this.gameState === 'jumping_direction') {
+        switch (key) {
+            case 'w': dr = -1; directionChosen = true; break;
+            case 'a': dc = -1; directionChosen = true; break;
+            case 's': dr = 1; directionChosen = true; break;
+            case 'd': dc = 1; directionChosen = true; break;
+            default: // Any other key cancels
+                this.gameState = 'playing';
+                this.lastActionMessage = '偵察ドローンの使用をキャンセルしました。';
+                return this.gameLoop();
+        }
+
+        if (directionChosen) {
+            const itemIndex = this.player.items.indexOf('recon_drone');
+            if (itemIndex > -1) {
+                this.player.items.splice(itemIndex, 1);
+            }
+
+            let r = this.player.r;
+            let c = this.player.c;
+
+            while (true) {
+                r += dr;
+                c += dc;
+
+                if (!this.isValidCell(r, c)) {
+                    break;
+                }
+
+                const cell = this.grid[r][c];
+                if (cell.isTrap) {
+                    cell.isRevealed = true;
+                    cell.isFlagged = false;
+                    break;
+                } else {
+                    this.revealFrom(r, c);
+                }
+            }
+            this.gameState = 'playing';
+            return this.gameLoop();
+        }
+    } else if (this.gameState === 'jumping_direction') {
       let jumpRow = this.player.r;
       let jumpCol = this.player.c;
       let jumped = false;
@@ -364,9 +484,7 @@ export const game = {
         this.gameState = 'playing';
         return this.gameLoop();
       }
-    }
-
-    if (this.gameState === 'playing') {
+    } else if (this.gameState === 'playing') {
       let newRow = this.player.r;
       let newCol = this.player.c;
       let moved = false;
@@ -378,6 +496,80 @@ export const game = {
           const itemIndex = this.player.items.indexOf(itemToUse);
           
           switch(itemToUse) {
+              case 'philosophers_stone':
+                  for (let i = -2; i <= 2; i++) {
+                      for (let j = -2; j <= 2; j++) {
+                          const nR = this.player.r + i;
+                          const nC = this.player.c + j;
+                          if (this.isValidCell(nR, nC)) {
+                              this.revealFrom(nR, nC);
+                          }
+                      }
+                  }
+                  this.player.items.splice(itemIndex, 1);
+                  break;
+              case 'recon_drone':
+                  this.gameState = 'recon_direction';
+                  break;
+              case 'scroll_of_chaos':
+                  // 1. Identify shufflable cells and count traps within them
+                  const shufflableCells = [];
+                  let trapCountToShuffle = 0;
+                  this.forEachCell((cell, r, c) => {
+                      if (!cell.isRevealed && !cell.isFlagged) {
+                          shufflableCells.push(cell);
+                          if (cell.isTrap) {
+                              trapCountToShuffle++;
+                          }
+                      }
+                  });
+
+                  // 2. "Pick up" all traps from the shufflable area
+                  shufflableCells.forEach(cell => {
+                      cell.isTrap = false;
+                  });
+
+                  // 3. Randomly place the traps back into the shufflable area
+                  // Fisher-Yates shuffle algorithm
+                  for (let i = shufflableCells.length - 1; i > 0; i--) {
+                      const j = Math.floor(Math.random() * (i + 1));
+                      [shufflableCells[i], shufflableCells[j]] = [shufflableCells[j], shufflableCells[i]];
+                  }
+
+                  for (let i = 0; i < trapCountToShuffle; i++) {
+                      shufflableCells[i].isTrap = true;
+                  }
+
+                  // 4. Recalculate the numbers for the entire grid
+                  this.calculateNumbers();
+
+                  // 5. Consume the item
+                  this.player.items.splice(itemIndex, 1);
+                  break;
+              case 'detailed_map_of_exit':
+                  if (!this.exitRevealedThisFloor) {
+                      this.exitRevealedThisFloor = true;
+                      const neighbors = this.getEightDirectionsNeighbors(this.exit.r, this.exit.c);
+                      for (const neighbor of neighbors) {
+                          this.revealFrom(neighbor.r, neighbor.c);
+                      }
+                      this.revealFrom(this.exit.r, this.exit.c);
+                      this.player.items.splice(itemIndex, 1);
+                  } else {
+                      itemUsed = false;
+                  }
+                  break;
+              case 'ariadnes_thread':
+                  const path = this.getLineCells(this.player.r, this.player.c, this.exit.r, this.exit.c);
+                  if (path && path.length > 0) {
+                      path.forEach(pos => {
+                          const cell = this.grid[pos.r][pos.c];
+                          cell.isRevealed = true;
+                          cell.isFlagged = false;
+                      });
+                  }
+                  this.player.items.splice(itemIndex, 1);
+                  break;
               case 'reveal_one_trap':
                   const neighborsToReveal = this.getEightDirectionsNeighbors(this.player.r, this.player.c);
                   for (const neighbor of neighborsToReveal) {
@@ -450,22 +642,8 @@ export const game = {
       const currentCell = this.grid[this.player.r][this.player.c];
 
       if (this.player.r === this.exit.r && this.player.c === this.exit.c) {
-        const currentRevelationRate = this.calculateRevelationRate();
-
-        this.floorRevelationRates.push({
-            floor: this.floorNumber,
-            rate: currentRevelationRate
-        });
-
-        if (currentRevelationRate < this.REVELATION_THRESHOLD) {
-            this.lastActionMessage = `フロア開示率が${(this.REVELATION_THRESHOLD * 100).toFixed(0)}%未満のため、アイテムボーナスはありませんでした。（${(currentRevelationRate * 100).toFixed(0)}%）`;
-            this.floorNumber++;
-            this.setupFloor();
-        } else {
-            this.gameState = 'choosing_item';
-            this.showItemChoiceScreen();
-        }
-        return; 
+        this.gameState = 'confirm_next_floor';
+        return;
       }
 
       if (currentCell.isTrap) {
@@ -485,9 +663,11 @@ export const game = {
       }
 
       if (currentCell.hasItem) {
-        this.player.items.push(currentCell.itemId);
+        const itemId = currentCell.itemId;
+        this.player.items.push(itemId);
         currentCell.hasItem = false;
         currentCell.itemId = null;
+        this.justAcquiredItem = itemId;
       }
       
       if(this.gameState !== 'gameover') {
@@ -497,7 +677,7 @@ export const game = {
 
   showItemChoiceScreen: function() {
     const choices = [];
-    const itemIds = Object.keys(ITEMS);
+    const itemIds = this.getAvailableItems();
     while (choices.length < 3 && choices.length < itemIds.length) {
       const randomId = itemIds[Math.floor(Math.random() * itemIds.length)];
       if (!choices.includes(randomId)) {
@@ -543,16 +723,27 @@ export const game = {
         message = 'Floor Cleared! Choose your reward:';
     } else if (this.gameState === 'jumping_direction') {
         message = 'Jump direction (w/a/s/d):';
+    } else if (this.gameState === 'recon_direction') {
+        message = 'Recon direction (w/a/s/d):';
+    } else if (this.gameState === 'confirm_next_floor') {
+        message = '次のフロアに進みますか？';
     }
 
-    return {
+    const result = {
       displayState: this.getDisplayState(),
       prompt: promptText,
       message: message,
       lastActionMessage: this.lastActionMessage,
       uiEffect: this.uiEffect,
       gameState: this.gameState,
+      newItemAcquired: null
     };
+
+    if (this.justAcquiredItem) {
+        result.newItemAcquired = { id: this.justAcquiredItem, ...ITEMS[this.justAcquiredItem] };
+    }
+
+    return result;
   }
 };
 
@@ -565,3 +756,25 @@ game.clearLastActionMessage = function() {
 game.clearUiEffect = function() {
     this.uiEffect = null;
 };
+
+game.clearJustAcquiredItem = function() {
+    this.justAcquiredItem = null;
+};
+
+export function initializeGame() {
+  game.grid = [];
+  game.rows = 8;
+  game.cols = 8;
+  game.player = { r: 0, c: 0, items: [] };
+  game.exit = { r: 0, c: 0 };
+  game.floorNumber = 1;
+  game.turn = 0;
+  game.gameState = 'playing';
+  game.exitRevealedThisFloor = false;
+  game.uiEffect = null;
+  game.justAcquiredItem = null;
+  game.currentItemChoices = [];
+  game.floorRevelationRates = [];
+  game.finalFloorNumber = 0;
+  game.finalItems = [];
+}

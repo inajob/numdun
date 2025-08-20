@@ -1,9 +1,10 @@
-// browser_io.js
-import { game, ITEMS } from './core.js';
+import { game, ITEMS, initializeGame } from './core.js';
 
 let selectedChoiceIndex = 0; // For keyboard selection on item choice screen
+let selectedConfirmIndex = 0; // For keyboard selection on next floor confirmation
 const INPUT_DEBOUNCE_MS = 100; // Cooldown in ms to prevent double taps
 let lastInput = { key: null, time: 0 };
+let isModalActive = false; // NEW: To control game pause for modal
 
 // Cache DOM elements to avoid repeated lookups
 const dom = {
@@ -36,6 +37,57 @@ function showNotification(text, duration = 3000) {
         popup.classList.add('fade-out');
         popup.addEventListener('transitionend', () => popup.remove());
     }, duration);
+}
+
+/**
+ * NEW: Shows a modal dialog for item acquisition, pausing the game.
+ * @param {object} item The acquired item object from core.js
+ */
+function showItemAcquiredModal(item) {
+    console.log("show")
+    if (isModalActive) return;
+    console.log("next")
+    isModalActive = true;
+    game.clearJustAcquiredItem(); // Clear the state in core.js
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+
+    const content = document.createElement('div');
+    content.className = 'modal-content';
+
+    const title = document.createElement('h3');
+    title.textContent = `アイテム獲得: ${item.name}`;
+
+    const description = document.createElement('p');
+    description.textContent = item.description;
+
+    const button = document.createElement('button');
+    button.textContent = '続ける (任意のキー)';
+
+    content.appendChild(title);
+    content.appendChild(description);
+    content.appendChild(button);
+    overlay.appendChild(content);
+    document.body.appendChild(overlay);
+
+    button.focus();
+
+    const closeModal = () => {
+        if (!isModalActive) return;
+        document.removeEventListener('keydown', modalKeyListener);
+        document.body.removeChild(overlay);
+        isModalActive = false;
+        runBrowserGameLoop(); // Refresh the game screen after closing
+    };
+
+    const modalKeyListener = (event) => {
+        event.preventDefault();
+        closeModal();
+    };
+
+    button.addEventListener('click', closeModal);
+    document.addEventListener('keydown', modalKeyListener);
 }
 
 function renderGridToDom(displayState) {
@@ -157,6 +209,13 @@ function isInputDebounced(key) {
 }
 
 function handleGlobalKeyboardInput(event) {
+    if (isModalActive) {
+        // The modal's own listener will handle Enter.
+        // We prevent any other game input from processing.
+        event.preventDefault();
+        return;
+    }
+
     // Convert arrow keys to wasd at the beginning for consistent handling
     let key = event.key.toLowerCase();
     switch (event.key) {
@@ -168,7 +227,26 @@ function handleGlobalKeyboardInput(event) {
 
     let handled = true;
 
-    if (game.gameState === 'choosing_item') {
+    if (game.gameState === 'confirm_next_floor') {
+        event.preventDefault();
+        const choices = ['yes', 'no'];
+        switch (key) {
+            case 'w':
+                selectedConfirmIndex = (selectedConfirmIndex > 0) ? selectedConfirmIndex - 1 : choices.length - 1;
+                updateConfirmHighlight();
+                break;
+            case 's':
+                selectedConfirmIndex = (selectedConfirmIndex < choices.length - 1) ? selectedConfirmIndex + 1 : 0;
+                updateConfirmHighlight();
+                break;
+            case 'enter':
+                const action = choices[selectedConfirmIndex];
+                processBrowserInput(action);
+                break;
+            default:
+                break;
+        }
+    } else if (game.gameState === 'choosing_item') {
         event.preventDefault();
         const choices = document.querySelectorAll('.item-choice-btn');
         if (!choices.length) return;
@@ -195,7 +273,7 @@ function handleGlobalKeyboardInput(event) {
                 break;
         }
 
-    } else if (game.gameState === 'jumping_direction') {
+    } else if (game.gameState === 'jumping_direction' || game.gameState === 'recon_direction') {
         if ('wasd'.includes(key)) {
             if (isInputDebounced(key)) return;
             processBrowserInput(key);
@@ -203,7 +281,10 @@ function handleGlobalKeyboardInput(event) {
             handled = false;
         }
     } else if (game.gameState === 'playing') {
-        if ('wasdretj'.includes(key)) {
+        const itemKeys = Object.values(ITEMS).map(item => item.key).filter(k => k).join('');
+        const validKeys = 'wasd' + itemKeys;
+
+        if (validKeys.includes(key)) {
             if (isInputDebounced(key)) return;
             processBrowserInput(key);
         } else {
@@ -229,83 +310,134 @@ function processBrowserInput(input) {
     runBrowserGameLoop();
 }
 
+function updateStatusUI(displayState) {
+    let itemsHtml = '<strong>Items:</strong> ';
+    const itemCounts = (displayState.items || []).reduce((counts, id) => {
+        counts[id] = (counts[id] || 0) + 1;
+        return counts;
+    }, {});
+
+    const itemEntries = Object.entries(itemCounts);
+
+    if (itemEntries.length === 0) {
+        itemsHtml += 'None';
+    } else {
+        itemsHtml += itemEntries.map(([id, count]) => {
+            const item = ITEMS[id];
+            if (!item) return 'Unknown Item';
+
+            let itemName = item.name;
+            if (item.key) {
+                itemName += `(${item.key.toLowerCase()})`;
+            }
+
+            return `${itemName} x${count}`;
+        }).join(', ');
+    }
+    dom.itemList.innerHTML = itemsHtml;
+
+    dom.floorNumber.textContent = `Floor: ${displayState.floorNumber}`;
+
+    const currentRevelationRate = game.calculateRevelationRate();
+    if (currentRevelationRate >= game.REVELATION_THRESHOLD) {
+        dom.revelationStatus.textContent = '開示率: 達成';
+        dom.revelationStatus.style.color = '#4CAF50';
+    } else {
+        dom.revelationStatus.textContent = '開示率: 未達成';
+        dom.revelationStatus.style.color = '#F44336';
+    }
+}
+
 function runBrowserGameLoop() {
     const gameResult = game.gameLoop();
+
+    // NEW: Check for item acquisition first and show modal if needed
+    if (gameResult.newItemAcquired) {
+        showItemAcquiredModal(gameResult.newItemAcquired);
+        return; // Stop further rendering until modal is closed
+    }
+
     const displayState = gameResult.displayState;
 
-    // Hide all screens by default, then show the correct one
-    dom.controls.style.display = 'none';
+    // Hide all full-screen overlays by default
     dom.itemSelectionScreen.style.display = 'none';
     dom.inventoryScreen.style.display = 'none';
-    dom.gameStatus.style.display = 'none';
-    dom.actionPrompt.style.display = 'none';
     dom.resultScreen.style.display = 'none';
+    
+    // Show the main game view by default
+    dom.gameGrid.style.display = 'flex';
+    dom.controls.style.display = 'grid';
+    dom.gameStatus.style.display = 'flex';
+    dom.actionPrompt.style.display = 'none';
+    dom.controls.classList.remove('confirm-dialog'); // Remove confirm class by default
 
-    if (gameResult.gameState === 'choosing_item') {
-        dom.gameStatus.style.display = 'flex';
+
+    if (gameResult.gameState === 'confirm_next_floor') {
+        renderGridToDom(displayState);
+        updateStatusUI(displayState);
+
+        // Take over the controls area for the confirmation dialog
+        dom.controls.innerHTML = ''; // Clear arrow buttons
+        dom.controls.classList.add('confirm-dialog');
+        selectedConfirmIndex = 0; // Reset selection
+
+        const prompt = document.createElement('div');
+        prompt.textContent = gameResult.message;
+        prompt.className = 'confirm-prompt-message';
+
+        const yesButton = document.createElement('button');
+        yesButton.textContent = 'はい';
+        yesButton.className = 'confirm-btn';
+        yesButton.dataset.choice = 'yes';
+        yesButton.onclick = () => processBrowserInput('yes');
+        
+        const noButton = document.createElement('button');
+        noButton.textContent = 'いいえ';
+        noButton.className = 'confirm-btn';
+        noButton.dataset.choice = 'no';
+        noButton.onclick = () => processBrowserInput('no');
+
+        const pad1 = document.createElement('div');
+        const pad2 = document.createElement('div');
+        const pad3 = document.createElement('div');
+        const pad4 = document.createElement('div');
+        const pad5 = document.createElement('div');
+        dom.controls.appendChild(pad1);
+        dom.controls.appendChild(prompt);
+        dom.controls.appendChild(pad2);
+        dom.controls.appendChild(pad3);
+        dom.controls.appendChild(yesButton);
+        dom.controls.appendChild(pad4);
+        dom.controls.appendChild(pad5);
+        dom.controls.appendChild(noButton);
+        
+        updateConfirmHighlight();
+
+    } else if (gameResult.gameState === 'choosing_item') {
+        renderGridToDom(displayState);
+        updateStatusUI(displayState);
         dom.itemSelectionScreen.style.display = 'block';
         renderItemSelectionScreen(displayState.currentItemChoices);
+        // Hide game view behind item selection
+        dom.gameGrid.style.display = 'none';
+        dom.controls.style.display = 'none';
+
     } else if (gameResult.gameState === 'gameover') {
-        // On game over, keep the grid visible
-        dom.gameGrid.style.display = 'flex';
         renderGridToDom(displayState); // Render the final grid state
+        updateStatusUI(displayState);
 
         // Render the result screen
         renderResultScreen(gameResult.result);
         dom.resultScreen.style.display = 'flex';
 
-        // Disable control buttons, except for reset
-        document.querySelectorAll('.control-btn').forEach(b => {
-            if (b.id !== 'btn-reset') {
-                b.style.pointerEvents = 'none';
-                b.style.backgroundColor = '#333';
-            }
-        });
+        // Hide game-related UI
         dom.gameStatus.style.display = 'none';
-        dom.actionPrompt.style.display = 'none';
+        dom.controls.style.display = 'none';
 
-    } else {
-        dom.gameGrid.style.display = 'flex';
-        dom.controls.style.display = 'grid';
-        dom.gameStatus.style.display = 'flex';
-
+    } else { // playing, jumping, etc.
         renderGridToDom(displayState);
-
-        let itemsHtml = '<strong>Items:</strong> ';
-        const itemCounts = (displayState.items || []).reduce((counts, id) => {
-            counts[id] = (counts[id] || 0) + 1;
-            return counts;
-        }, {});
-
-        const itemEntries = Object.entries(itemCounts);
-
-        if (itemEntries.length === 0) {
-            itemsHtml += 'None';
-        } else {
-            itemsHtml += itemEntries.map(([id, count]) => {
-                const item = ITEMS[id];
-                if (!item) return 'Unknown Item';
-
-                let itemName = item.name;
-                if (item.key) {
-                    itemName += `(${item.key.toLowerCase()})`;
-                }
-
-                return `${itemName} x${count}`;
-            }).join(', ');
-        }
-        dom.itemList.innerHTML = itemsHtml;
-
-        dom.floorNumber.textContent = `Floor: ${displayState.floorNumber}`;
-
-        const currentRevelationRate = game.calculateRevelationRate();
-        if (currentRevelationRate >= game.REVELATION_THRESHOLD) {
-            dom.revelationStatus.textContent = '開示率: 達成';
-            dom.revelationStatus.style.color = '#4CAF50';
-        } else {
-            dom.revelationStatus.textContent = '開示率: 未達成';
-            dom.revelationStatus.style.color = '#F44336';
-        }
+        updateStatusUI(displayState);
+        setupControlButtons();
 
         // Handle messages based on their type
         if (gameResult.lastActionMessage) {
@@ -313,7 +445,7 @@ function runBrowserGameLoop() {
             game.clearLastActionMessage();
         }
 
-        if (gameResult.gameState === 'jumping_direction') {
+        if (gameResult.gameState === 'jumping_direction' || gameResult.gameState === 'recon_direction') {
             if (gameResult.message) {
                 dom.actionPrompt.textContent = gameResult.message;
                 dom.actionPrompt.style.display = 'block';
@@ -419,7 +551,39 @@ function updateChoiceHighlight() {
     });
 }
 
+function updateConfirmHighlight() {
+    const choices = dom.controls.querySelectorAll('.confirm-btn');
+    choices.forEach((btn, index) => {
+        if (index === selectedConfirmIndex) {
+            btn.classList.add('selected');
+        } else {
+            btn.classList.remove('selected');
+        }
+    });
+}
+
 function setupControlButtons() {
+    // This function now assumes the controls div is empty or has non-button elements
+    // that should be removed. It rebuilds the controls.
+    dom.controls.innerHTML = '';
+    const controls = [
+        { id: 'btn-up', key: 'w', text: '&uarr;' },
+        { id: 'btn-left', key: 'a', text: '&larr;' },
+        { id: 'btn-down', key: 's', text: '&darr;' },
+        { id: 'btn-right', key: 'd', text: '&rarr;' },
+        { id: 'btn-inventory', key: null, text: 'Inv' } // Inventory button
+    ];
+
+    controls.forEach(c => {
+        const button = document.createElement('button');
+        button.id = c.id;
+        if (c.key) button.dataset.key = c.key;
+        button.className = 'control-btn';
+        button.innerHTML = c.text;
+        dom.controls.appendChild(button);
+    });
+
+    // Add event listeners
     document.getElementById('btn-inventory').addEventListener('click', showInventoryScreen);
 
     const keyButtons = document.querySelectorAll('[data-key]');
@@ -500,9 +664,7 @@ export function initBrowserGame() {
     document.addEventListener('keydown', handleGlobalKeyboardInput);
     setupControlButtons();
     dom.resetButton.addEventListener('click', () => {
-        game.clearLastActionMessage(); // Clear any lingering messages
-        game.floorNumber = 1;
-        game.player.items = []; // Reset items on new game
+        initializeGame();
         game.setupFloor();
         runBrowserGameLoop();
         // Re-enable control buttons on reset
