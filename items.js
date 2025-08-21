@@ -1,4 +1,4 @@
-import { getEightDirectionsNeighbors, getLineCells } from './utils.js';
+import { getEightDirectionsNeighbors, getLineCells, isValidCell, forEachCell } from './utils.js';
 
 export const ITEMS = {
   // 通常アイテム (F1+)
@@ -137,7 +137,7 @@ export const ITEMS = {
         for (let j = -2; j <= 2; j++) {
           const nR = game.player.r + i;
           const nC = game.player.c + j;
-          if (game.isValidCell(nR, nC)) { // isValidCellはgameオブジェクトに残すのでこのまま
+          if (isValidCell(nR, nC, game.rows, game.cols)) {
             game.revealFrom(nR, nC);
           }
         }
@@ -154,7 +154,7 @@ export const ITEMS = {
     use: function(game) {
       // 1. 出口とアイテムマスの隣接マスを「罠配置禁止ゾーン」として定義
       const protectedCells = [];
-      game.forEachCell((cell, r, c) => {
+      forEachCell(game.grid, (cell, r, c) => {
         if ((r === game.exit.r && c === game.exit.c) || cell.hasItem) {
           protectedCells.push({ r, c });
         }
@@ -172,7 +172,7 @@ export const ITEMS = {
       // 2. シャッフル対象のセルを決定
       const shufflableCells = [];
       let trapCountToShuffle = 0;
-      game.forEachCell((cell, r, c) => {
+      forEachCell(game.grid, (cell, r, c) => {
         if (!cell.isRevealed && !cell.isFlagged && !forbiddenZones.has(`${r},${c}`)) {
           shufflableCells.push(cell);
           if (cell.isTrap) {
