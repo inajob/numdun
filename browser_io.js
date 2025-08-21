@@ -1,4 +1,5 @@
-import { game, ITEMS, initializeGame } from './core.js';
+import { game, initializeGame } from './game.js';
+import { ITEMS } from './items.js';
 
 let selectedChoiceIndex = 0; // For keyboard selection on item choice screen
 let selectedConfirmIndex = 0; // For keyboard selection on next floor confirmation
