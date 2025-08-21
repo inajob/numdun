@@ -41,7 +41,9 @@ export const ITEMS = {
 
       if (trapsInVicinity.length > 0) {
         const trapToDemolish = trapsInVicinity[Math.floor(Math.random() * trapsInVicinity.length)];
-        game.grid[trapToDemolish.r][trapToDemolish.c].isTrap = false;
+        const cellToClear = game.grid[trapToDemolish.r][trapToDemolish.c];
+        cellToClear.isTrap = false;
+        cellToClear.isFlagged = false; // 罠と同時にフラグも解除
         game.calculateNumbers();
       }
       return { consumed: true };
