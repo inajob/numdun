@@ -43,11 +43,27 @@ h1 {
 }
 #game-status {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    width:100%;
+    gap: 8px; /* 行間のスペース */
     margin-bottom: 10px;
-    padding: 5px;
+    margin: 10px;
+    padding: 10px;
     border: 1px solid #444;
     font-size: 0.9em;
+    background-color: #2a2a2a;
+    border-radius: 5px;
+}
+
+#status-main {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+}
+
+#item-list {
+    line-height: 1.4;
+    text-align: left;
 }
 #game-grid {
     display: flex;
