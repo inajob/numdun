@@ -1,5 +1,6 @@
 // console_io.js
-import { game, ITEMS } from './core.js';
+import { game } from './game.js';
+import { ITEMS } from './items.js';
 import readline from 'readline'; // Use import for readline
 
 let rl; // For Node.js readline interface
