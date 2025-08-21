@@ -71,15 +71,13 @@ function renderGridToDom(displayState) {
             const isExit = (r === displayState.exit.r && c === displayState.exit.c);
             const isRevealed = gridCell.isRevealed || (isExit && displayState.exitRevealedThisFloor);
 
-            // NEW: Add click/right-click listener for flagging non-revealed cells
+            // NEW: Add click listener for flagging non-revealed cells
             if (!isRevealed) {
-                const flagAction = (event) => {
+                cell.addEventListener('click', (event) => {
                     event.preventDefault();
                     game.toggleFlag(r, c);
                     runBrowserGameLoop();
-                };
-                cell.addEventListener('click', flagAction);
-                cell.addEventListener('contextmenu', flagAction);
+                });
             }
 
             const numberSpan = document.createElement('span');
