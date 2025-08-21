@@ -24,7 +24,7 @@ const dom = {
 
 /**
  * Displays a short-lived notification pop-up.
- * @param {string} text The message to display.
+ * @param {string} htmlContent The message to display (can be HTML).
  * @param {number} duration How long to display the message in ms.
  */
 function showNotification(text, duration = 3000) {
@@ -39,52 +39,7 @@ function showNotification(text, duration = 3000) {
     }, duration);
 }
 
-/**
- * Shows a modal dialog with item details.
- * @param {string} itemId The ID of the item to display.
- */
-function showItemDetailModal(itemId) {
-    const item = ITEMS[itemId];
-    if (!item) return;
 
-    // Close any existing modal first
-    const existingModal = document.querySelector('.modal-overlay');
-    if (existingModal) existingModal.remove();
-
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-
-    const content = document.createElement('div');
-    content.className = 'modal-content';
-
-    const title = document.createElement('h3');
-    title.textContent = item.name;
-
-    const description = document.createElement('p');
-    description.textContent = item.description;
-
-    const button = document.createElement('button');
-    button.textContent = '閉じる';
-
-    content.appendChild(title);
-    content.appendChild(description);
-    content.appendChild(button);
-    overlay.appendChild(content);
-    document.body.appendChild(overlay);
-
-    button.focus();
-
-    const closeModal = () => {
-        document.body.removeChild(overlay);
-    };
-
-    button.addEventListener('click', closeModal);
-    overlay.addEventListener('click', (event) => {
-        if (event.target === overlay) {
-            closeModal();
-        }
-    });
-}
 
 function renderGridToDom(displayState) {
     dom.gameGrid.innerHTML = ''; // Clear previous grid
@@ -207,13 +162,6 @@ function isInputDebounced(key) {
 }
 
 function handleGlobalKeyboardInput(event) {
-    // Close modal on Escape key
-    const modal = document.querySelector('.modal-overlay');
-    if (event.key === 'Escape' && modal) {
-        modal.remove();
-        return;
-    }
-    if (modal) return; // Block game input when modal is open
 
     // Convert arrow keys to wasd at the beginning for consistent handling
     let key = event.key.toLowerCase();
@@ -245,7 +193,7 @@ function handleGlobalKeyboardInput(event) {
             default:
                 break;
         }
-    } else if (game.gameState === 'choising_item') {
+    } else if (game.gameState === 'choosing_item') {
         event.preventDefault();
         const choices = document.querySelectorAll('.item-choice-btn');
         if (!choices.length) return;
@@ -310,6 +258,7 @@ function processBrowserInput(input) {
 }
 
 function updateStatusUI(displayState) {
+    let itemsHtml = '<strong>Items:</strong> ';
     const itemCounts = (displayState.items || []).reduce((counts, id) => {
         counts[id] = (counts[id] || 0) + 1;
         return counts;
@@ -318,10 +267,9 @@ function updateStatusUI(displayState) {
     const itemEntries = Object.entries(itemCounts);
 
     if (itemEntries.length === 0) {
-        dom.itemList.innerHTML = '<strong>Items:</strong> None';
+        itemsHtml += 'None';
     } else {
-        // Create clickable spans for each item
-        const itemHtmlElements = itemEntries.map(([id, count]) => {
+        itemsHtml += itemEntries.map(([id, count]) => {
             const item = ITEMS[id];
             if (!item) return 'Unknown Item';
 
@@ -329,12 +277,11 @@ function updateStatusUI(displayState) {
             if (item.key) {
                 itemName += `(${item.key.toLowerCase()})`;
             }
-            // Return a string that will be parsed as HTML
-            return `<span class="item-link" data-item-id="${id}" title="${item.name}の詳細を見る">${itemName} x${count}</span>`;
-        });
-        // Set the innerHTML
-        dom.itemList.innerHTML = `<strong>Items:</strong> ${itemHtmlElements.join(', ')}`;
+
+            return `${itemName} x${count}`;
+        }).join(', ');
     }
+    dom.itemList.innerHTML = itemsHtml;
 
     dom.floorNumber.textContent = `Floor: ${displayState.floorNumber}`;
 
@@ -665,18 +612,6 @@ function renderInventoryScreen(usableItems) {
 export function initBrowserGame() {
     document.addEventListener('keydown', handleGlobalKeyboardInput);
     setupControlButtons();
-
-    // Add click listener for item details
-    dom.itemList.addEventListener('click', (event) => {
-        const itemLink = event.target.closest('.item-link');
-        if (itemLink) {
-            const itemId = itemLink.dataset.itemId;
-            if (itemId) {
-                showItemDetailModal(itemId);
-            }
-        }
-    });
-
     dom.resetButton.addEventListener('click', () => {
         initializeGame();
         game.setupFloor();
