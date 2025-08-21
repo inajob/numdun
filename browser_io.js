@@ -245,7 +245,7 @@ function handleGlobalKeyboardInput(event) {
             default:
                 break;
         }
-    } else if (game.gameState === 'choising_item') {
+    } else if (game.gameState === 'choosing_item') {
         event.preventDefault();
         const choices = document.querySelectorAll('.item-choice-btn');
         if (!choices.length) return;
@@ -339,127 +339,85 @@ function updateStatusUI(displayState) {
     dom.floorNumber.textContent = `Floor: ${displayState.floorNumber}`;
 
     const currentRevelationRate = game.calculateRevelationRate();
+    dom.revelationStatus.classList.remove('status-achieved', 'status-not-achieved');
     if (currentRevelationRate >= game.REVELATION_THRESHOLD) {
         dom.revelationStatus.textContent = '開示率: 達成';
-        dom.revelationStatus.style.color = '#4CAF50';
+        dom.revelationStatus.classList.add('status-achieved');
     } else {
         dom.revelationStatus.textContent = '開示率: 未達成';
-        dom.revelationStatus.style.color = '#F44336';
+        dom.revelationStatus.classList.add('status-not-achieved');
     }
+}
+
+function renderConfirmDialog(message) {
+    dom.controls.innerHTML = ''; // Clear existing controls
+    dom.controls.classList.add('confirm-dialog');
+
+    const template = document.getElementById('template-confirm-dialog');
+    const content = template.content.cloneNode(true);
+
+    content.querySelector('.confirm-prompt-message').textContent = message;
+    content.querySelector('[data-choice="yes"]').onclick = () => processBrowserInput('yes');
+    content.querySelector('[data-choice="no"]').onclick = () => processBrowserInput('no');
+
+    dom.controls.appendChild(content);
+    
+    selectedConfirmIndex = 0; // Reset selection for keyboard controls
+    updateConfirmHighlight();
 }
 
 function runBrowserGameLoop() {
     const gameResult = game.gameLoop();
 
-    // NEW: Show a notification when an item is acquired
+    // Set the game state on the body element for CSS to handle view switching
+    document.body.dataset.gameState = gameResult.gameState;
+
+    // Handle item acquisition pop-up
     if (gameResult.newItemAcquired) {
         const item = gameResult.newItemAcquired;
         const message = `アイテム獲得: ${item.name}`;
-        showNotification(message, 3000); // Show for 3 seconds
-        game.clearJustAcquiredItem(); // Clear the state in core.js
+        showNotification(message, 3000);
+        game.clearJustAcquiredItem();
     }
 
     const displayState = gameResult.displayState;
 
-    // Hide all full-screen overlays by default
-    dom.itemSelectionScreen.style.display = 'none';
-    dom.inventoryScreen.style.display = 'none';
-    dom.resultScreen.style.display = 'none';
-    
-    // Show the main game view by default
-    dom.gameGrid.style.display = 'flex';
-    dom.controls.style.display = 'grid';
-    dom.gameStatus.style.display = 'flex';
-    dom.actionPrompt.style.display = 'none';
-    dom.controls.classList.remove('confirm-dialog'); // Remove confirm class by default
+    // Always render the core components
+    renderGridToDom(displayState);
+    updateStatusUI(displayState);
 
+    // --- State-specific rendering logic ---
+    const gameState = gameResult.gameState;
 
-    if (gameResult.gameState === 'confirm_next_floor') {
-        renderGridToDom(displayState);
-        updateStatusUI(displayState);
-
-        // Take over the controls area for the confirmation dialog
-        dom.controls.innerHTML = ''; // Clear arrow buttons
-        dom.controls.classList.add('confirm-dialog');
-        selectedConfirmIndex = 0; // Reset selection
-
-        const prompt = document.createElement('div');
-        prompt.textContent = gameResult.message;
-        prompt.className = 'confirm-prompt-message';
-
-        const yesButton = document.createElement('button');
-        yesButton.textContent = 'はい';
-        yesButton.className = 'confirm-btn';
-        yesButton.dataset.choice = 'yes';
-        yesButton.onclick = () => processBrowserInput('yes');
-        
-        const noButton = document.createElement('button');
-        noButton.textContent = 'いいえ';
-        noButton.className = 'confirm-btn';
-        noButton.dataset.choice = 'no';
-        noButton.onclick = () => processBrowserInput('no');
-
-        const pad1 = document.createElement('div');
-        const pad2 = document.createElement('div');
-        const pad3 = document.createElement('div');
-        const pad4 = document.createElement('div');
-        const pad5 = document.createElement('div');
-        dom.controls.appendChild(pad1);
-        dom.controls.appendChild(prompt);
-        dom.controls.appendChild(pad2);
-        dom.controls.appendChild(pad3);
-        dom.controls.appendChild(yesButton);
-        dom.controls.appendChild(pad4);
-        dom.controls.appendChild(pad5);
-        dom.controls.appendChild(noButton);
-        
-        updateConfirmHighlight();
-
-    } else if (gameResult.gameState === 'choosing_item') {
-        renderGridToDom(displayState);
-        updateStatusUI(displayState);
-        dom.itemSelectionScreen.style.display = 'block';
+    if (gameState === 'confirm_next_floor') {
+        renderConfirmDialog(gameResult.message);
+    } else if (gameState === 'choosing_item') {
         renderItemSelectionScreen(displayState.currentItemChoices);
-        // Hide game view behind item selection
-        dom.gameGrid.style.display = 'none';
-        dom.controls.style.display = 'none';
-
-    } else if (gameResult.gameState === 'gameover') {
-        renderGridToDom(displayState); // Render the final grid state
-        updateStatusUI(displayState);
-
-        // Render the result screen
+    } else if (gameState === 'gameover') {
         renderResultScreen(gameResult.result);
-        dom.resultScreen.style.display = 'flex';
-
-        // Hide game-related UI
-        dom.gameStatus.style.display = 'none';
-        dom.controls.style.display = 'none';
-
-    } else { // playing, jumping, etc.
-        renderGridToDom(displayState);
-        updateStatusUI(displayState);
+    } else if (['playing', 'jumping_direction', 'recon_direction'].includes(gameState)) {
         setupControlButtons();
+    }
 
-        // Handle messages based on their type
-        if (gameResult.lastActionMessage) {
-            showNotification(gameResult.lastActionMessage);
-            game.clearLastActionMessage();
-        }
+    // --- State-specific message/effect handling ---
+    dom.actionPrompt.style.display = 'none'; // Reset prompt
+    if (gameResult.lastActionMessage) {
+        showNotification(gameResult.lastActionMessage);
+        game.clearLastActionMessage();
+    }
 
-        if (gameResult.gameState === 'jumping_direction' || gameResult.gameState === 'recon_direction') {
-            if (gameResult.message) {
-                dom.actionPrompt.textContent = gameResult.message;
-                dom.actionPrompt.style.display = 'block';
-            }
-        } else if (gameResult.message && gameResult.gameState !== 'choosing_item') {
-            showNotification(gameResult.message);
-        }
+    if (['jumping_direction', 'recon_direction'].includes(gameState) && gameResult.message) {
+        dom.actionPrompt.textContent = gameResult.message;
+        dom.actionPrompt.style.display = 'block';
+    }
+    
+    if (gameResult.message && !['choosing_item', 'confirm_next_floor', 'jumping_direction', 'recon_direction'].includes(gameState)) {
+        showNotification(gameResult.message);
+    }
 
-        if (gameResult.uiEffect === 'flash_red') {
-            flashScreenRed();
-            game.clearUiEffect(); // エフェクトをクリア
-        }
+    if (gameResult.uiEffect === 'flash_red') {
+        flashScreenRed();
+        game.clearUiEffect();
     }
 }
 
@@ -520,12 +478,15 @@ function renderItemSelectionScreen(choices) {
     selectedChoiceIndex = 0;
 
     if (choices) {
+        const template = document.getElementById('template-item-choice');
         choices.forEach((id, index) => {
             const item = ITEMS[id];
             if (item) {
-                const button = document.createElement('button');
-                button.className = 'item-choice-btn';
-                button.innerHTML = `<strong>${item.name}</strong><span>${item.description}</span>`;
+                const content = template.content.cloneNode(true);
+                const button = content.querySelector('.item-choice-btn');
+                
+                button.querySelector('strong').textContent = item.name;
+                button.querySelector('span').textContent = item.description;
                 
                 const action = (event) => {
                     event.preventDefault();
@@ -607,18 +568,14 @@ function showInventoryScreen() {
     const displayState = game.getDisplayState();
     const usableItems = displayState.items
         .map(id => ITEMS[id])
-        .filter(item => item.key !== null);
+        .filter(item => item && item.key !== null);
 
     if (usableItems.length === 0) {
-        showNotification("You have no usable items.");
+        showNotification("使用できるアイテムがありません。");
         return;
     }
 
-    dom.gameGrid.style.display = 'none';
-    dom.controls.style.display = 'none';
-    dom.gameStatus.style.display = 'none';
-    dom.inventoryScreen.style.display = 'block';
-
+    document.body.dataset.gameState = 'inventory';
     renderInventoryScreen(usableItems);
 }
 
@@ -627,10 +584,8 @@ function renderInventoryScreen(usableItems) {
     screen.innerHTML = '<h2>Use Item</h2>';
 
     const hideAndShowGame = () => {
-        screen.style.display = 'none';
-        dom.gameGrid.style.display = 'flex';
-        dom.controls.style.display = 'grid';
-        dom.gameStatus.style.display = 'flex';
+        document.body.dataset.gameState = 'playing'; // Go back to playing state
+        runBrowserGameLoop();
     };
 
     usableItems.forEach(item => {
@@ -651,13 +606,8 @@ function renderInventoryScreen(usableItems) {
     cancelButton.className = 'inventory-item-btn';
     cancelButton.id = 'inventory-cancel-btn';
     cancelButton.textContent = 'Cancel';
-    const cancelAction = (event) => {
-        event.preventDefault();
-        hideAndShowGame();
-        runBrowserGameLoop();
-    };
-    cancelButton.addEventListener('click', cancelAction);
-    cancelButton.addEventListener('touchstart', cancelAction, { passive: false });
+    cancelButton.addEventListener('click', hideAndShowGame);
+    cancelButton.addEventListener('touchstart', hideAndShowGame, { passive: false });
     screen.appendChild(cancelButton);
 }
 

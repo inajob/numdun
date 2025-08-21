@@ -273,8 +273,6 @@ h1 {
     opacity: 0;
 }
 
-
-
 /* Action Prompt Styles */
 #action-prompt {
     padding: 8px;
@@ -298,7 +296,7 @@ h1 {
     100% { background-color: #1a1a1a; }
 }
 
-/* NEW: Result Screen Styles */
+/* Result Screen Styles */
 #result-screen {
     padding: 10px;
     text-align: center;
@@ -381,7 +379,7 @@ h1 {
     border-color: #FFC107;
 }
 
-/* NEW: Modal Dialog Styles */
+/* Modal Dialog Styles */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -427,4 +425,57 @@ h1 {
 
 .modal-content button:hover {
     background-color: #45a049;
+}
+.status-achieved {
+    color: #4CAF50;
+}
+
+.status-not-achieved {
+    color: #F44336;
+}
+
+/* --- View Management based on Game State --- */
+
+/* Hide all major UI containers by default */
+#game-container,
+#item-selection-screen,
+#inventory-screen,
+#result-screen {
+    display: none;
+}
+
+/* Show the relevant container based on the body's data attribute */
+body[data-game-state="playing"] #game-container,
+body[data-game-state="jumping_direction"] #game-container,
+body[data-game-state="recon_direction"] #game-container,
+body[data-game-state="confirm_next_floor"] #game-container,
+body[data-game-state="gameover"] #game-container {
+    display: flex;
+}
+
+body[data-game-state="choosing_item"] #item-selection-screen {
+    display: block;
+}
+
+body[data-game-state="gameover"] #result-screen {
+    display: flex;
+}
+
+body[data-game-state="inventory"] #inventory-screen {
+    display: block;
+}
+
+/* Special handling for controls inside game-container */
+#controls {
+    display: none; /* Hide controls by default */
+}
+
+body[data-game-state="playing"] #controls,
+body[data-game-state="jumping_direction"] #controls,
+body[data-game-state="recon_direction"] #controls {
+    display: grid;
+}
+
+body[data-game-state="confirm_next_floor"] #controls {
+    display: flex;
 }

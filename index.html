@@ -1,45 +1,58 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trap Dungeon</title>
-    <meta property="og:title" content="Trap Dungeon">
-    <meta property="og:description" content="マインスイーパをベースにした、ミニマルなローグライトゲーム。罠を避け、出口を目指せ！">
-    <meta property="og:type" content="game">
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body data-game-state="playing">
     <div id="game-wrapper">
+        <h1>Trap Dungeon</h1>
         <div id="game-container">
-            <h1>Trap Dungeon</h1>
-                <div id="game-status">
-        <div id="status-main">
-            <span id="floor-number"></span>
-            <span id="revelation-status"></span>
+            <div id="game-status">
+                <div id="status-main">
+                    <span id="floor-number"></span>
+                    <span id="revelation-status"></span>
+                </div>
+                <div id="item-list"></div>
+            </div>
+            <div id="game-grid"></div>
+            <div id="action-prompt"></div>
+            <div id="controls"></div>
         </div>
-        <div id="item-list"></div>
-    </div>
-        <div id="action-prompt"></div>
-        <div id="game-grid"></div>
-        <div id="item-selection-screen" style="display: none;"></div>
-        <div id="inventory-screen" style="display: none;"></div>
-        <!-- NEW: Result Screen -->
-        <div id="result-screen" style="display: none;">
-            <h2>Game Over!</h2>
+
+        <!-- Full-screen overlays -->
+        <div id="item-selection-screen" class="screen"></div>
+        <div id="inventory-screen" class="screen"></div>
+        <div id="result-screen" class="screen">
+            <h2>Game Over</h2>
             <div id="final-floor"></div>
             <div id="final-items"></div>
             <div id="floor-revelation-rates"></div>
-            <button id="btn-reset">Play Again</button>
-        </div>
-        <div id="controls">
-            <div id="btn-up" class="control-btn" data-key="w">↑</div>
-            <div id="btn-left" class="control-btn" data-key="a">←</div>
-            <div id="btn-inventory" class="control-btn">Item</div>
-            <div id="btn-right" class="control-btn" data-key="d">→</div>
-            <div id="btn-down" class="control-btn" data-key="s">↓</div>
+            <button id="btn-reset">もう一度プレイ</button>
         </div>
     </div>
+
+    <!-- Templates for dynamic content -->
+    <template id="template-confirm-dialog">
+        <!-- The empty divs are for grid layout purposes -->
+        <div></div>
+        <div class="confirm-prompt-message"></div>
+        <div></div>
+        <div></div>
+        <button class="confirm-btn" data-choice="yes">はい</button>
+        <div></div>
+        <div></div>
+        <button class="confirm-btn" data-choice="no">いいえ</button>
+    </template>
+
+    <template id="template-item-choice">
+        <button class="item-choice-btn">
+            <strong></strong>
+            <span></span>
+        </button>
+    </template>
 
     <script type="module" src="browser_main.js"></script>
 </body>

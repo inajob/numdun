@@ -23,6 +23,7 @@ const getInitialGameState = () => ({
   floorRevelationRates: [],
   finalFloorNumber: 0,
   finalItems: [],
+  lastActionMessage: ''
 });
 
 export const game = {
