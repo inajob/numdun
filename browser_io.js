@@ -5,7 +5,6 @@ let selectedChoiceIndex = 0; // For keyboard selection on item choice screen
 let selectedConfirmIndex = 0; // For keyboard selection on next floor confirmation
 const INPUT_DEBOUNCE_MS = 100; // Cooldown in ms to prevent double taps
 let lastInput = { key: null, time: 0 };
-let isModalActive = false; // NEW: To control game pause for modal
 
 // Cache DOM elements to avoid repeated lookups
 const dom = {
@@ -25,7 +24,7 @@ const dom = {
 
 /**
  * Displays a short-lived notification pop-up.
- * @param {string} text The message to display.
+ * @param {string} htmlContent The message to display (can be HTML).
  * @param {number} duration How long to display the message in ms.
  */
 function showNotification(text, duration = 3000) {
@@ -40,56 +39,7 @@ function showNotification(text, duration = 3000) {
     }, duration);
 }
 
-/**
- * NEW: Shows a modal dialog for item acquisition, pausing the game.
- * @param {object} item The acquired item object from core.js
- */
-function showItemAcquiredModal(item) {
-    console.log("show")
-    if (isModalActive) return;
-    console.log("next")
-    isModalActive = true;
-    game.clearJustAcquiredItem(); // Clear the state in core.js
 
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-
-    const content = document.createElement('div');
-    content.className = 'modal-content';
-
-    const title = document.createElement('h3');
-    title.textContent = `アイテム獲得: ${item.name}`;
-
-    const description = document.createElement('p');
-    description.textContent = item.description;
-
-    const button = document.createElement('button');
-    button.textContent = '続ける (任意のキー)';
-
-    content.appendChild(title);
-    content.appendChild(description);
-    content.appendChild(button);
-    overlay.appendChild(content);
-    document.body.appendChild(overlay);
-
-    button.focus();
-
-    const closeModal = () => {
-        if (!isModalActive) return;
-        document.removeEventListener('keydown', modalKeyListener);
-        document.body.removeChild(overlay);
-        isModalActive = false;
-        runBrowserGameLoop(); // Refresh the game screen after closing
-    };
-
-    const modalKeyListener = (event) => {
-        event.preventDefault();
-        closeModal();
-    };
-
-    button.addEventListener('click', closeModal);
-    document.addEventListener('keydown', modalKeyListener);
-}
 
 function renderGridToDom(displayState) {
     dom.gameGrid.innerHTML = ''; // Clear previous grid
@@ -210,12 +160,6 @@ function isInputDebounced(key) {
 }
 
 function handleGlobalKeyboardInput(event) {
-    if (isModalActive) {
-        // The modal's own listener will handle Enter.
-        // We prevent any other game input from processing.
-        event.preventDefault();
-        return;
-    }
 
     // Convert arrow keys to wasd at the beginning for consistent handling
     let key = event.key.toLowerCase();
@@ -352,10 +296,12 @@ function updateStatusUI(displayState) {
 function runBrowserGameLoop() {
     const gameResult = game.gameLoop();
 
-    // NEW: Check for item acquisition first and show modal if needed
+    // NEW: Show a notification when an item is acquired
     if (gameResult.newItemAcquired) {
-        showItemAcquiredModal(gameResult.newItemAcquired);
-        return; // Stop further rendering until modal is closed
+        const item = gameResult.newItemAcquired;
+        const message = `アイテム獲得: ${item.name}`;
+        showNotification(message, 3000); // Show for 3 seconds
+        game.clearJustAcquiredItem(); // Clear the state in core.js
     }
 
     const displayState = gameResult.displayState;
