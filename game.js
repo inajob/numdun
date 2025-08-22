@@ -364,7 +364,6 @@ export const game = {
     const currentCell = this.grid[this.player.r][this.player.c];
     if (this.player.r === this.exit.r && this.player.c === this.exit.c) {
       this.gameState = 'confirm_next_floor';
-      return;
     }
     if (currentCell.isTrap) {
       if (this.hasItem('trap_shield')) {
