@@ -282,7 +282,7 @@ h1 {
     border-radius: 4px;
     text-align: center;
     font-weight: bold;
-    display: none; /* Hidden by default */
+    /* display: none; is now handled in View Management */
 }
 
 /* Flash Red Effect */
@@ -483,4 +483,13 @@ body[data-game-state="confirm_next_floor"] #controls {
 body[data-game-state="choosing_item"] #game-grid,
 body[data-game-state="choosing_item"] #controls {
     display: none;
+}
+
+/* --- Action Prompt Visibility --- */
+#action-prompt {
+    display: none;
+}
+body[data-game-state="jumping_direction"] #action-prompt,
+body[data-game-state="recon_direction"] #action-prompt {
+    display: block;
 }

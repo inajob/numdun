@@ -399,7 +399,6 @@ function runBrowserGameLoop() {
     }
 
     // --- State-specific message/effect handling ---
-    dom.actionPrompt.style.display = 'none'; // Reset prompt
     if (gameResult.lastActionMessage) {
         showNotification(gameResult.lastActionMessage);
         game.clearLastActionMessage();
@@ -407,7 +406,6 @@ function runBrowserGameLoop() {
 
     if (['jumping_direction', 'recon_direction'].includes(gameState) && gameResult.message) {
         dom.actionPrompt.textContent = gameResult.message;
-        dom.actionPrompt.style.display = 'block';
     }
     
     if (gameResult.message && !['choosing_item', 'confirm_next_floor', 'jumping_direction', 'recon_direction'].includes(gameState)) {
