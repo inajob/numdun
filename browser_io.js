@@ -351,7 +351,6 @@ function updateStatusUI(displayState) {
 
 function renderConfirmDialog(message) {
     dom.controls.innerHTML = ''; // Clear existing controls
-    dom.controls.classList.add('confirm-dialog');
 
     const template = document.getElementById('template-confirm-dialog');
     const content = template.content.cloneNode(true);

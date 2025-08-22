@@ -347,14 +347,7 @@ h1 {
 }
 
 /* Confirmation Dialog Styles */
-#controls.confirm-dialog {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 10px;
-    gap: 10px;
-}
+/* This rule is now merged into the body[data-game-state] selector below */
 
 .confirm-prompt-message {
     font-size: 1.1em;
@@ -479,6 +472,11 @@ body[data-game-state="recon_direction"] #controls {
 
 body[data-game-state="confirm_next_floor"] #controls {
     display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    gap: 10px;
 }
 
 /* アイテム選択中は、盤面と操作ボタンを非表示にする */
