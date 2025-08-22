@@ -1,4 +1,3 @@
-import { game, initializeGame } from './game.js';
 import { ITEMS } from './items.js';
 
 let selectedChoiceIndex = 0; // For keyboard selection on item choice screen
@@ -6,21 +5,28 @@ let selectedConfirmIndex = 0; // For keyboard selection on next floor confirmati
 const INPUT_DEBOUNCE_MS = 100; // Cooldown in ms to prevent double taps
 let lastInput = { key: null, time: 0 };
 
-// Cache DOM elements to avoid repeated lookups
-const dom = {
-    gameGrid: document.getElementById('game-grid'),
-    controls: document.getElementById('controls'),
-    itemSelectionScreen: document.getElementById('item-selection-screen'),
-    gameStatus: document.getElementById('game-status'),
-    inventoryScreen: document.getElementById('inventory-screen'),
-    actionPrompt: document.getElementById('action-prompt'),
-    resultScreen: document.getElementById('result-screen'),
-    itemList: document.getElementById('item-list'),
-    floorNumber: document.getElementById('floor-number'),
-    revelationStatus: document.getElementById('revelation-status'),
-    gameContainer: document.getElementById('game-container'),
-    resetButton: document.getElementById('btn-reset'),
-};
+// このモジュールで共有されるゲームインスタンス
+let gameInstance;
+
+// DOM要素を保持するオブジェクト。initDomCacheで初期化する。
+let dom = {};
+
+function initDomCache() {
+    dom = {
+        gameGrid: document.getElementById('game-grid'),
+        controls: document.getElementById('controls'),
+        itemSelectionScreen: document.getElementById('item-selection-screen'),
+        gameStatus: document.getElementById('game-status'),
+        inventoryScreen: document.getElementById('inventory-screen'),
+        actionPrompt: document.getElementById('action-prompt'),
+        resultScreen: document.getElementById('result-screen'),
+        itemList: document.getElementById('item-list'),
+        floorNumber: document.getElementById('floor-number'),
+        revelationStatus: document.getElementById('revelation-status'),
+        gameContainer: document.getElementById('game-container'),
+        resetButton: document.getElementById('btn-reset'),
+    };
+}
 
 /**
  * Displays a short-lived notification pop-up.
@@ -86,7 +92,7 @@ function showItemDetailModal(itemId) {
     });
 }
 
-function renderGridToDom(displayState) {
+export function renderGridToDom(displayState) {
     dom.gameGrid.innerHTML = ''; // Clear previous grid
 
     // Calculate dynamic cell size
@@ -116,11 +122,10 @@ function renderGridToDom(displayState) {
             const isExit = (r === displayState.exit.r && c === displayState.exit.c);
             const isRevealed = gridCell.isRevealed || (isExit && displayState.exitRevealedThisFloor);
 
-            // NEW: Add click/right-click listener for flagging non-revealed cells
             if (!isRevealed) {
                 const flagAction = (event) => {
                     event.preventDefault();
-                    game.toggleFlag(r, c);
+                    gameInstance.toggleFlag(r, c);
                     runBrowserGameLoop();
                 };
                 cell.addEventListener('click', flagAction);
@@ -130,9 +135,8 @@ function renderGridToDom(displayState) {
             const numberSpan = document.createElement('span');
             numberSpan.className = 'cell-number';
 
-            // Determine content and classes
             let numberContent = '';
-            let entityContent = ''; // For corner icon when player is present
+            let entityContent = '';
             let playerContent = '';
 
             if (isPlayer) {
@@ -150,7 +154,6 @@ function renderGridToDom(displayState) {
                 if (isExit) entityContent = 'E';
 
             } else if (isRevealed) {
-                // Priority: Exit > Item > Trap > Number
                 if (isExit) {
                     cell.classList.add('game-cell--exit');
                     numberContent = 'E';
@@ -171,11 +174,9 @@ function renderGridToDom(displayState) {
                 cell.classList.add('game-cell--hidden');
             }
 
-            // Set content and append children
             numberSpan.textContent = numberContent;
             cell.appendChild(numberSpan);
 
-            // This span is now ONLY for the corner icon when the player is on top of something
             if (entityContent) {
                 const entitySpan = document.createElement('span');
                 entitySpan.className = 'cell-entity';
@@ -199,7 +200,7 @@ function renderGridToDom(displayState) {
 function isInputDebounced(key) {
     const now = Date.now();
     if (key === lastInput.key && now - lastInput.time < INPUT_DEBOUNCE_MS) {
-        return true; // Debounce this input
+        return true;
     }
     lastInput.key = key;
     lastInput.time = now;
@@ -207,15 +208,13 @@ function isInputDebounced(key) {
 }
 
 function handleGlobalKeyboardInput(event) {
-    // Close modal on Escape key
     const modal = document.querySelector('.modal-overlay');
     if (event.key === 'Escape' && modal) {
         modal.remove();
         return;
     }
-    if (modal) return; // Block game input when modal is open
+    if (modal) return;
 
-    // Convert arrow keys to wasd at the beginning for consistent handling
     let key = event.key.toLowerCase();
     switch (event.key) {
         case 'ArrowUp': key = 'w'; break;
@@ -226,7 +225,7 @@ function handleGlobalKeyboardInput(event) {
 
     let handled = true;
 
-    if (game.gameState === 'confirm_next_floor') {
+    if (gameInstance.gameState === 'confirm_next_floor') {
         event.preventDefault();
         const choices = ['yes', 'no'];
         switch (key) {
@@ -245,7 +244,7 @@ function handleGlobalKeyboardInput(event) {
             default:
                 break;
         }
-    } else if (game.gameState === 'choosing_item') {
+    } else if (gameInstance.gameState === 'choosing_item') {
         event.preventDefault();
         const choices = document.querySelectorAll('.item-choice-btn');
         if (!choices.length) return;
@@ -272,14 +271,14 @@ function handleGlobalKeyboardInput(event) {
                 break;
         }
 
-    } else if (game.gameState === 'jumping_direction' || game.gameState === 'recon_direction') {
+    } else if (['jumping_direction', 'recon_direction'].includes(gameInstance.gameState)) {
         if ('wasd'.includes(key)) {
             if (isInputDebounced(key)) return;
             processBrowserInput(key);
         } else {
             handled = false;
         }
-    } else if (game.gameState === 'playing') {
+    } else if (gameInstance.gameState === 'playing') {
         const itemKeys = Object.values(ITEMS).map(item => item.key).filter(k => k).join('');
         const validKeys = 'wasd' + itemKeys;
 
@@ -290,7 +289,6 @@ function handleGlobalKeyboardInput(event) {
             handled = false;
         }
     } else {
-        // For 'gameover' or any other state, do not handle input
         handled = false;
     }
 
@@ -300,11 +298,11 @@ function handleGlobalKeyboardInput(event) {
 }
 
 function processBrowserInput(input) {
-    const actionResult = game.handleInput(input);
+    const actionResult = gameInstance.handleInput(input);
 
     if (actionResult && actionResult.action === 'next_floor_after_delay') {
-        game.floorNumber++;
-        game.setupFloor();
+        gameInstance.floorNumber++;
+        gameInstance.setupFloor();
     }
     runBrowserGameLoop();
 }
@@ -320,7 +318,6 @@ function updateStatusUI(displayState) {
     if (itemEntries.length === 0) {
         dom.itemList.innerHTML = '<strong>Items:</strong> None';
     } else {
-        // Create clickable spans for each item
         const itemHtmlElements = itemEntries.map(([id, count]) => {
             const item = ITEMS[id];
             if (!item) return 'Unknown Item';
@@ -329,18 +326,16 @@ function updateStatusUI(displayState) {
             if (item.key) {
                 itemName += `(${item.key.toLowerCase()})`;
             }
-            // Return a string that will be parsed as HTML
             return `<span class="item-link" data-item-id="${id}" title="${item.name}の詳細を見る">${itemName} x${count}</span>`;
         });
-        // Set the innerHTML
         dom.itemList.innerHTML = `<strong>Items:</strong> ${itemHtmlElements.join(', ')}`;
     }
 
     dom.floorNumber.textContent = `Floor: ${displayState.floorNumber}`;
 
-    const currentRevelationRate = game.calculateRevelationRate();
+    const currentRevelationRate = gameInstance.calculateRevelationRate();
     dom.revelationStatus.classList.remove('status-achieved', 'status-not-achieved');
-    if (currentRevelationRate >= game.REVELATION_THRESHOLD) {
+    if (currentRevelationRate >= gameInstance.REVELATION_THRESHOLD) {
         dom.revelationStatus.textContent = '開示率: 達成';
         dom.revelationStatus.classList.add('status-achieved');
     } else {
@@ -350,7 +345,7 @@ function updateStatusUI(displayState) {
 }
 
 function renderConfirmDialog(message) {
-    dom.controls.innerHTML = ''; // Clear existing controls
+    dom.controls.innerHTML = '';
 
     const template = document.getElementById('template-confirm-dialog');
     const content = template.content.cloneNode(true);
@@ -361,31 +356,27 @@ function renderConfirmDialog(message) {
 
     dom.controls.appendChild(content);
     
-    selectedConfirmIndex = 0; // Reset selection for keyboard controls
+    selectedConfirmIndex = 0;
     updateConfirmHighlight();
 }
 
 function runBrowserGameLoop() {
-    const gameResult = game.gameLoop();
+    const gameResult = gameInstance.gameLoop();
 
-    // Set the game state on the body element for CSS to handle view switching
     document.body.dataset.gameState = gameResult.gameState;
 
-    // Handle item acquisition pop-up
     if (gameResult.newItemAcquired) {
         const item = gameResult.newItemAcquired;
         const message = `アイテム獲得: ${item.name}`;
         showNotification(message, 3000);
-        game.clearJustAcquiredItem();
+        gameInstance.clearJustAcquiredItem();
     }
 
     const displayState = gameResult.displayState;
 
-    // Always render the core components
     renderGridToDom(displayState);
     updateStatusUI(displayState);
 
-    // --- State-specific rendering logic ---
     const gameState = gameResult.gameState;
 
     if (gameState === 'confirm_next_floor') {
@@ -398,10 +389,9 @@ function runBrowserGameLoop() {
         setupControlButtons();
     }
 
-    // --- State-specific message/effect handling ---
     if (gameResult.lastActionMessage) {
         showNotification(gameResult.lastActionMessage);
-        game.clearLastActionMessage();
+        gameInstance.clearLastActionMessage();
     }
 
     if (['jumping_direction', 'recon_direction'].includes(gameState) && gameResult.message) {
@@ -414,27 +404,23 @@ function runBrowserGameLoop() {
 
     if (gameResult.uiEffect === 'flash_red') {
         flashScreenRed();
-        game.clearUiEffect();
+        gameInstance.clearUiEffect();
     }
 }
 
-/**
- * Makes the screen flash red briefly.
- */
 function flashScreenRed() {
     dom.gameContainer.classList.add('flash-red');
     setTimeout(() => {
         dom.gameContainer.classList.remove('flash-red');
-    }, 200); // Flash for 200ms
+    }, 200);
 }
 
-// NEW: リザルト画面のレンダリング関数
 function renderResultScreen(result) {
     document.getElementById('final-floor').textContent = `最終到達フロア: ${result.finalFloorNumber}`;
     
     const finalItemsDiv = document.getElementById('final-items');
     let itemsHtml = '所持アイテム: ';
-    const itemEntries = Object.entries(result.finalItems); // result.finalItems はすでにカウント済みオブジェクト
+    const itemEntries = Object.entries(result.finalItems);
 
     if (itemEntries.length === 0) {
         itemsHtml += 'なし';
@@ -442,14 +428,7 @@ function renderResultScreen(result) {
         itemsHtml += itemEntries.map(([id, count]) => {
             const item = ITEMS[id];
             if (!item) return 'Unknown Item';
-
-            let itemName = item.name;
-            // リザルト画面ではキー表示は不要なので削除
-            // if (item.key) {
-            //     itemName += `(${item.key.toLowerCase()})`;
-            // }
-
-            return `${itemName} x${count}`;
+            return `${item.name} x${count}`;
         }).join(', ');
     }
     finalItemsDiv.textContent = itemsHtml;
@@ -523,15 +502,13 @@ function updateConfirmHighlight() {
 }
 
 function setupControlButtons() {
-    // This function now assumes the controls div is empty or has non-button elements
-    // that should be removed. It rebuilds the controls.
     dom.controls.innerHTML = '';
     const controls = [
         { id: 'btn-up', key: 'w', text: '&uarr;' },
         { id: 'btn-left', key: 'a', text: '&larr;' },
         { id: 'btn-down', key: 's', text: '&darr;' },
         { id: 'btn-right', key: 'd', text: '&rarr;' },
-        { id: 'btn-inventory', key: null, text: 'Inv' } // Inventory button
+        { id: 'btn-inventory', key: null, text: 'Inv' }
     ];
 
     controls.forEach(c => {
@@ -543,7 +520,6 @@ function setupControlButtons() {
         dom.controls.appendChild(button);
     });
 
-    // Add event listeners
     document.getElementById('btn-inventory').addEventListener('click', showInventoryScreen);
 
     const keyButtons = document.querySelectorAll('[data-key]');
@@ -562,7 +538,7 @@ function setupControlButtons() {
 }
 
 function showInventoryScreen() {
-    const displayState = game.getDisplayState();
+    const displayState = gameInstance.getDisplayState();
     const usableItems = displayState.items
         .map(id => ITEMS[id])
         .filter(item => item && item.key !== null);
@@ -581,7 +557,7 @@ function renderInventoryScreen(usableItems) {
     screen.innerHTML = '<h2>Use Item</h2>';
 
     const hideAndShowGame = () => {
-        document.body.dataset.gameState = 'playing'; // Go back to playing state
+        document.body.dataset.gameState = 'playing';
         runBrowserGameLoop();
     };
 
@@ -608,12 +584,12 @@ function renderInventoryScreen(usableItems) {
     screen.appendChild(cancelButton);
 }
 
-
-export function initBrowserGame() {
+export function initBrowserGame(game, initializeGame) {
+    initDomCache();
+    gameInstance = game;
     document.addEventListener('keydown', handleGlobalKeyboardInput);
     setupControlButtons();
 
-    // Add click listener for item details
     dom.itemList.addEventListener('click', (event) => {
         const itemLink = event.target.closest('.item-link');
         if (itemLink) {
@@ -626,14 +602,13 @@ export function initBrowserGame() {
 
     dom.resetButton.addEventListener('click', () => {
         initializeGame();
-        game.setupFloor();
+        gameInstance.setupFloor();
         runBrowserGameLoop();
-        // Re-enable control buttons on reset
         document.querySelectorAll('.control-btn').forEach(b => {
             b.style.pointerEvents = 'auto';
-            b.style.backgroundColor = ''; // Reset to default color
+            b.style.backgroundColor = '';
         });
     });
-    game.setupFloor();
+    gameInstance.setupFloor();
     runBrowserGameLoop();
 }

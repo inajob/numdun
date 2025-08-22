@@ -67,39 +67,45 @@ export function initConsoleGame() {
 function runConsoleGameLoop() {
     const gameResult = game.gameLoop();
 
-    if (gameResult.gameOver) {        displayGridConsole(gameResult.displayState);        print(gameResult.message);        // NEW: リザルト情報を表示        print('\n--- Game Over Result ---');        print(`最終到達フロア: ${gameResult.result.finalFloorNumber}`);        print(`所持アイテム: ${gameResult.result.finalItems.join(', ') || 'なし'}`);        print('各フロアの開示率:');        if (gameResult.result.floorRevelationRates.length > 0) {            gameResult.result.floorRevelationRates.forEach(fr => {                print(`  フロア ${fr.floor}: ${(fr.rate * 100).toFixed(2)}%`);            });        } else {            print('  なし');        }        print('------------------------');        rl.close();        return;    }
-
-    if (gameResult.prompt) {
+    if (gameResult.gameState === 'gameover') { // gameStateで判定
         displayGridConsole(gameResult.displayState);
-        print(`--- Floor ${gameResult.displayState.floorNumber} Cleared! ---`); // Message for cleared floor
-        print(`Upgrades: ${gameResult.displayState.items.map(id => ITEMS[id].name).join(', ') || 'None'}`); // Display upgrades
-        print('Choose your upgrade:');
-        gameResult.displayState.currentItemChoices.forEach((id, index) => {
-            print(`${index + 1}: ${ITEMS[id].name} - ${ITEMS[id].description}`);
-        });
-        print('');
-
-        prompt(gameResult.prompt, (input) => {
-            if (input.toLowerCase() === 'q') {
-                game.isGameOver = true;
-                runConsoleGameLoop();
-                return;
-            }
-            const actionResult = game.handleInput(input);
-            if (actionResult && actionResult.action === 'next_floor_after_delay') {
-                print(actionResult.message);
-                setTimeout(() => {
-                    game.floorNumber++;
-                    game.setupFloor();
-                    runConsoleGameLoop();
-                }, actionResult.delay);
-            } else {
-                runConsoleGameLoop();
-            }
-        });
-    } else {
-        // This case should ideally not happen if gameLoop always returns a prompt or game over state
-        displayGridConsole(gameResult.displayState);
-        runConsoleGameLoop();
+        print(gameResult.message);
+        // NEW: リザルト情報を表示
+        print('\n--- Game Over Result ---');
+        print(`最終到達フロア: ${gameResult.result.finalFloorNumber}`);
+        const finalItemNames = Object.entries(gameResult.result.finalItems)
+            .map(([id, count]) => `${ITEMS[id].name} x${count}`)
+            .join(', ');
+        print(`所持アイテム: ${finalItemNames || 'なし'}`);
+        print('各フロアの開示率:');
+        if (gameResult.result.floorRevelationRates.length > 0) {
+            gameResult.result.floorRevelationRates.forEach(fr => {
+                print(`  フロア ${fr.floor}: ${(fr.rate * 100).toFixed(2)}%`);
+            });
+        } else {
+            print('  なし');
+        }
+        print('------------------------');
+        rl.close();
+        return;
     }
+
+    displayGridConsole(gameResult.displayState);
+
+    if (gameResult.message) {
+        print(gameResult.message);
+    }
+    if (gameResult.lastActionMessage) {
+        print(gameResult.lastActionMessage);
+        game.clearLastActionMessage();
+    }
+
+    prompt(gameResult.prompt, (input) => {
+        if (input.toLowerCase() === 'q') {
+            rl.close();
+            return;
+        }
+        game.handleInput(input);
+        runConsoleGameLoop();
+    });
 }
