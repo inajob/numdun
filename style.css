@@ -449,7 +449,8 @@ body[data-game-state="playing"] #game-container,
 body[data-game-state="jumping_direction"] #game-container,
 body[data-game-state="recon_direction"] #game-container,
 body[data-game-state="confirm_next_floor"] #game-container,
-body[data-game-state="gameover"] #game-container {
+body[data-game-state="gameover"] #game-container,
+body[data-game-state="choosing_item"] #game-container {
     display: flex;
 }
 
@@ -478,4 +479,10 @@ body[data-game-state="recon_direction"] #controls {
 
 body[data-game-state="confirm_next_floor"] #controls {
     display: flex;
+}
+
+/* アイテム選択中は、盤面と操作ボタンを非表示にする */
+body[data-game-state="choosing_item"] #game-grid,
+body[data-game-state="choosing_item"] #controls {
+    display: none;
 }
