@@ -196,10 +196,13 @@ export const game = {
 
   revealFrom: function(r, c) {
     if (!isValidCell(r, c, this.rows, this.cols) || this.grid[r][c].isRevealed) return;
-    this.grid[r][c].isRevealed = true;
-    this.grid[r][c].isFlagged = false;
 
-    if (this.grid[r][c].adjacentTraps === 0) {
+    const cell = this.grid[r][c];
+    cell.isRevealed = true;
+    cell.isFlagged = false;
+
+    // 罠のマスでは再帰しない、かつ、隣接する罠が0のマスでのみ再帰する
+    if (!cell.isTrap && cell.adjacentTraps === 0) {
       const neighbors = getEightDirectionsNeighbors(r, c, this.rows, this.cols);
       for (const neighbor of neighbors) {
         this.revealFrom(neighbor.r, neighbor.c);
