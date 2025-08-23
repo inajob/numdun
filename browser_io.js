@@ -556,7 +556,8 @@ function renderInventoryScreen(usableItems) {
     const screen = dom.inventoryScreen;
     screen.innerHTML = '<h2>Use Item</h2>';
 
-    const hideAndShowGame = () => {
+    const hideAndShowGame = (event) => {
+        if (event) event.stopPropagation(); // イベントの伝播を停止
         document.body.dataset.gameState = 'playing';
         runBrowserGameLoop();
     };
@@ -566,12 +567,13 @@ function renderInventoryScreen(usableItems) {
         button.className = 'inventory-item-btn';
         button.textContent = item.name;
         const action = (event) => {
+            event.stopPropagation(); // イベントの伝播を停止
             event.preventDefault();
-            hideAndShowGame();
+            hideAndShowGame(event);
             processBrowserInput(item.key);
         };
         button.addEventListener('click', action);
-        button.addEventListener('touchstart', action, { passive: false });
+        button.addEventListener('touchend', action, { passive: false });
         screen.appendChild(button);
     });
 
@@ -580,7 +582,7 @@ function renderInventoryScreen(usableItems) {
     cancelButton.id = 'inventory-cancel-btn';
     cancelButton.textContent = 'Cancel';
     cancelButton.addEventListener('click', hideAndShowGame);
-    cancelButton.addEventListener('touchstart', hideAndShowGame, { passive: false });
+    cancelButton.addEventListener('touchend', (e) => hideAndShowGame(e), { passive: false });
     screen.appendChild(cancelButton);
 }
 
