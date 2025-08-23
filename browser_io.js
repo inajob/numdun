@@ -4,6 +4,7 @@ let selectedChoiceIndex = 0; // For keyboard selection on item choice screen
 let selectedConfirmIndex = 0; // For keyboard selection on next floor confirmation
 const INPUT_DEBOUNCE_MS = 100; // Cooldown in ms to prevent double taps
 let lastInput = { key: null, time: 0 };
+let resizeTimeout; // For debouncing resize events
 
 // このモジュールで共有されるゲームインスタンス
 let gameInstance;
@@ -25,6 +26,7 @@ function initDomCache() {
         revelationStatus: document.getElementById('revelation-status'),
         gameContainer: document.getElementById('game-container'),
         resetButton: document.getElementById('btn-reset'),
+        h1: document.querySelector('h1'),
     };
 }
 
@@ -95,11 +97,36 @@ function showItemDetailModal(itemId) {
 export function renderGridToDom(displayState) {
     dom.gameGrid.innerHTML = ''; // Clear previous grid
 
-    // Calculate dynamic cell size
     const gridGap = 2; // From CSS --grid-gap
+
+    // --- Width-based calculation ---
     const totalGridGapWidth = (displayState.grid[0].length - 1) * gridGap;
-    const availableWidth = dom.gameGrid.clientWidth || window.innerWidth * 0.9; // Use container width or a percentage of window width
-    let optimalCellSize = (availableWidth - totalGridGapWidth) / displayState.grid[0].length;
+    // Use the container's width minus its padding for a more accurate calculation
+    const availableWidth = dom.gameContainer.clientWidth - 20; // 20px for horizontal padding
+    const optimalWidthCellSize = (availableWidth - totalGridGapWidth) / displayState.grid[0].length;
+
+    // --- Height-based calculation ---
+    // Estimate the height of non-grid elements to find available vertical space.
+    const h1Height = dom.h1 ? dom.h1.offsetHeight : 30;
+    const gameStatusHeight = dom.gameStatus.offsetHeight || 80;
+    // Estimate controls height as it might not be visible. This is a key factor for small screens.
+    const controlsHeight = 180; // Estimated height for 3 rows of buttons + gaps
+    const actionPromptHeight = dom.actionPrompt.offsetHeight || 0;
+    const containerPadding = 20; // #game-container vertical padding
+    const wrapperPadding = 20; // #game-wrapper vertical padding
+    const otherElementsHeight = h1Height + gameStatusHeight + controlsHeight + actionPromptHeight + containerPadding + wrapperPadding;
+
+    const availableHeight = window.innerHeight - otherElementsHeight;
+    const totalGridGapHeight = (displayState.grid.length - 1) * gridGap;
+    const optimalHeightCellSize = (availableHeight - totalGridGapHeight) / displayState.grid.length;
+
+    // --- Final cell size determination ---
+    // Use the smaller of the two calculated sizes to ensure the grid fits both ways.
+    // Only consider the height-based size if it's a positive number.
+    let optimalCellSize = optimalWidthCellSize;
+    if (optimalHeightCellSize > 0) {
+        optimalCellSize = Math.min(optimalWidthCellSize, optimalHeightCellSize);
+    }
 
     // Apply min/max constraints
     const MIN_CELL_SIZE = 20; // Minimum cell size in pixels
@@ -586,10 +613,20 @@ function renderInventoryScreen(usableItems) {
     screen.appendChild(cancelButton);
 }
 
+function handleResize() {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        if (gameInstance) {
+            runBrowserGameLoop();
+        }
+    }, 250); // Debounce resize events for 250ms
+}
+
 export function initBrowserGame(game, initializeGame) {
     initDomCache();
     gameInstance = game;
     document.addEventListener('keydown', handleGlobalKeyboardInput);
+    window.addEventListener('resize', handleResize); // Add resize listener
     setupControlButtons();
 
     dom.itemList.addEventListener('click', (event) => {
