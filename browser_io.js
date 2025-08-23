@@ -21,6 +21,7 @@ function initDomCache() {
         inventoryScreen: document.getElementById('inventory-screen'),
         actionPrompt: document.getElementById('action-prompt'),
         resultScreen: document.getElementById('result-screen'),
+        confirmDialogScreen: document.getElementById('confirm-dialog-screen'),
         itemList: document.getElementById('item-list'),
         floorNumber: document.getElementById('floor-number'),
         revelationStatus: document.getElementById('revelation-status'),
@@ -372,17 +373,22 @@ function updateStatusUI(displayState) {
 }
 
 function renderConfirmDialog(message) {
-    dom.controls.innerHTML = '';
+    const screen = dom.confirmDialogScreen;
+    screen.innerHTML = ''; // Clear previous content
 
     const template = document.getElementById('template-confirm-dialog');
     const content = template.content.cloneNode(true);
 
+    // Set the message
     content.querySelector('.confirm-prompt-message').textContent = message;
+
+    // Set button actions
     content.querySelector('[data-choice="yes"]').onclick = () => processBrowserInput('yes');
     content.querySelector('[data-choice="no"]').onclick = () => processBrowserInput('no');
 
-    dom.controls.appendChild(content);
-    
+    // Append the template content to the screen
+    screen.appendChild(content);
+
     selectedConfirmIndex = 0;
     updateConfirmHighlight();
 }
@@ -518,7 +524,15 @@ function updateChoiceHighlight() {
 }
 
 function updateConfirmHighlight() {
-    const choices = dom.controls.querySelectorAll('.confirm-btn');
+    let choices;
+    // The game state on the body is the most reliable source of truth here
+    if (document.body.dataset.gameState === 'confirm_next_floor') {
+        choices = dom.confirmDialogScreen.querySelectorAll('.confirm-btn');
+    } else {
+        // Fallback for any other potential future confirmation dialogs in controls
+        choices = dom.controls.querySelectorAll('.confirm-btn');
+    }
+
     choices.forEach((btn, index) => {
         if (index === selectedConfirmIndex) {
             btn.classList.add('selected');

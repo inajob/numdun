@@ -25,6 +25,7 @@
         <!-- Full-screen overlays -->
         <div id="item-selection-screen" class="screen"></div>
         <div id="inventory-screen" class="screen"></div>
+        <div id="confirm-dialog-screen" class="screen"></div>
         <div id="result-screen" class="screen">
             <h2>Game Over</h2>
             <div id="final-floor"></div>
@@ -36,10 +37,12 @@
 
     <!-- Templates for dynamic content -->
     <template id="template-confirm-dialog">
-        <div class="confirm-prompt-message"></div>
+    <div class="confirm-prompt-message"></div>
+    <div class="confirm-buttons">
         <button class="confirm-btn" data-choice="yes">はい</button>
         <button class="confirm-btn" data-choice="no">いいえ</button>
-    </template>
+    </div>
+</template>
 
     <template id="template-item-choice">
         <button class="item-choice-btn">

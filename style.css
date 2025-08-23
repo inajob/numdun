@@ -459,6 +459,10 @@ body[data-game-state="inventory"] #inventory-screen {
     display: block;
 }
 
+body[data-game-state="confirm_next_floor"] #confirm-dialog-screen {
+    display: flex;
+}
+
 /* Special handling for controls inside game-container */
 #controls {
     display: none; /* Hide controls by default */
@@ -471,12 +475,7 @@ body[data-game-state="recon_direction"] #controls {
 }
 
 body[data-game-state="confirm_next_floor"] #controls {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 10px;
-    gap: 10px;
+    display: none;
 }
 
 /* アイテム選択中は、盤面と操作ボタンを非表示にする */
@@ -492,4 +491,36 @@ body[data-game-state="choosing_item"] #controls {
 body[data-game-state="jumping_direction"] #action-prompt,
 body[data-game-state="recon_direction"] #action-prompt {
     display: block;
+}
+
+/* --- Confirmation Dialog Overlay --- */
+#confirm-dialog-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 150;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
+    text-align: center;
+}
+
+#confirm-dialog-screen .confirm-prompt-message {
+    font-size: 1.2em;
+    color: #FFC107;
+    margin-bottom: 25px;
+}
+
+#confirm-dialog-screen .confirm-buttons {
+    display: flex;
+    flex-direction: column; /* Arrange buttons vertically */
+    gap: 15px; /* Adjust gap for vertical layout */
+    width: 60%;
+    max-width: 200px;
 }
