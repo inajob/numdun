@@ -60,31 +60,57 @@ function showItemDetailModal(itemId) {
     const existingModal = document.querySelector('.modal-overlay');
     if (existingModal) existingModal.remove();
 
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
+    const template = document.getElementById('template-modal-dialog');
+    const modal = template.content.cloneNode(true);
+    const overlay = modal.querySelector('.modal-overlay');
+    const button = modal.querySelector('button');
 
-    const content = document.createElement('div');
-    content.className = 'modal-content';
+    modal.querySelector('h3').textContent = item.name;
+    modal.querySelector('p').textContent = item.description;
 
-    const title = document.createElement('h3');
-    title.textContent = item.name;
-
-    const description = document.createElement('p');
-    description.textContent = item.description;
-
-    const button = document.createElement('button');
-    button.textContent = '閉じる';
-
-    content.appendChild(title);
-    content.appendChild(description);
-    content.appendChild(button);
-    overlay.appendChild(content);
-    document.body.appendChild(overlay);
+    document.body.appendChild(modal);
 
     button.focus();
 
     const closeModal = () => {
         document.body.removeChild(overlay);
+    };
+
+    button.addEventListener('click', closeModal);
+    overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) {
+            closeModal();
+        }
+    });
+}
+
+/**
+ * Shows a tutorial modal dialog.
+ * @param {string} title The title of the modal.
+ * @param {string} contentText The text content of the modal.
+ */
+function showTutorialModal(title, contentText) {
+    // Close any existing modal first
+    const existingModal = document.querySelector('.modal-overlay');
+    if (existingModal) existingModal.remove();
+
+    const template = document.getElementById('template-modal-dialog');
+    const modal = template.content.cloneNode(true);
+    const overlay = modal.querySelector('.modal-overlay');
+    const button = modal.querySelector('button');
+    const descriptionP = modal.querySelector('p');
+
+    modal.querySelector('h3').textContent = title;
+    descriptionP.textContent = contentText;
+    descriptionP.style.whiteSpace = 'pre-wrap'; // To respect newlines in the text
+
+    document.body.appendChild(modal);
+
+    button.focus();
+
+    const closeModal = () => {
+        document.body.removeChild(overlay);
+        gameInstance.clearTutorial(); // Notify the game that the tutorial has been closed
     };
 
     button.addEventListener('click', closeModal);
@@ -149,6 +175,11 @@ export function renderGridToDom(displayState) {
             const isPlayer = (r === displayState.player.r && c === displayState.player.c);
             const isExit = (r === displayState.exit.r && c === displayState.exit.c);
             const isRevealed = gridCell.isRevealed || (isExit && displayState.exitRevealedThisFloor);
+
+            // 開示されていて、かつ見通しの悪いマスの場合にのみスタイルを適用
+            if (gridCell.isObscured && isRevealed) {
+                cell.classList.add('game-cell--obscured');
+            }
 
             if (!isRevealed) {
                 const flagAction = (event) => {
@@ -438,6 +469,10 @@ function runBrowserGameLoop() {
     if (gameResult.uiEffect === 'flash_red') {
         flashScreenRed();
         gameInstance.clearUiEffect();
+    }
+
+    if (gameResult.tutorialToShow) {
+        showTutorialModal(gameResult.tutorialToShow.title, gameResult.tutorialToShow.content);
     }
 }
 

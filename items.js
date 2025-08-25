@@ -115,16 +115,28 @@ export const ITEMS = {
     minFloor: 5,
     maxFloor: Infinity,
     use: function(game) {
-      if (!game.exitRevealedThisFloor) {
-        game.exitRevealedThisFloor = true;
-        const neighbors = getEightDirectionsNeighbors(game.exit.r, game.exit.c, game.rows, game.cols);
-        for (const neighbor of neighbors) {
-          game.revealFrom(neighbor.r, neighbor.c);
+      const cellsToReveal = getEightDirectionsNeighbors(game.exit.r, game.exit.c, game.rows, game.cols);
+      cellsToReveal.push({ r: game.exit.r, c: game.exit.c });
+
+      // これから開示しようとするマスの中に、まだ開示されていないマスがあるかチェック
+      const hasUnrevealedCell = cellsToReveal.some(pos => 
+        isValidCell(pos.r, pos.c, game.rows, game.cols) && !game.grid[pos.r][pos.c].isRevealed
+      );
+
+      if (hasUnrevealedCell) {
+        game.exitRevealedThisFloor = true; // 出口の位置は判明済みにする
+        for (const pos of cellsToReveal) {
+          // revealFromは内部でisRevealedチェックをするので、そのまま呼んでもOK
+          //念のためisValidCellも実行
+          if (isValidCell(pos.r, pos.c, game.rows, game.cols)) {
+            game.revealFrom(pos.r, pos.c);
+          }
         }
-        game.revealFrom(game.exit.r, game.exit.c);
         return { consumed: true };
+      } else {
+        // 開示する新しいマスが何もない場合
+        return { consumed: false, message: '出口の周囲はすべて判明している。' };
       }
-      return { consumed: false, message: '出口はすでに判明している。' };
     }
   },
   // 上位アイテム (F10+)

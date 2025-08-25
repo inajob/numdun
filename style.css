@@ -203,6 +203,23 @@ h1 {
 .game-cell--exit { background-color: #4CAF50; } /* Green */
 .game-cell--player { background-color: #F48FB1; } /* Light Pink */
 
+.game-cell--obscured {
+    /* ベースとなる背景色 */
+    background-color: #A1887F; /* 明るい茶色に変更 */
+
+    /* ひび割れ模様の描画 */
+    background-image:
+        /* 細いひび（白） */
+        linear-gradient(105deg, transparent 49.5%, rgba(255,255,255,0.4) 50%, transparent 50.5%),
+        linear-gradient(65deg, transparent 49.5%, rgba(255,255,255,0.4) 50%, transparent 50.5%),
+        /* 太いひび（黒） */
+        linear-gradient(35deg, transparent 49%, rgba(0,0,0,0.5) 50%, transparent 51%),
+        linear-gradient(-65deg, transparent 48%, rgba(0,0,0,0.5) 50%, transparent 52%);
+
+    /* 数字の色も変えて見やすくする */
+    color: #FFFFFF;
+}
+
 /* Spans inside the cell */
 .cell-number, .cell-entity, .cell-player-icon {
     position: absolute;
@@ -433,7 +450,8 @@ h1 {
 #game-container,
 #item-selection-screen,
 #inventory-screen,
-#result-screen {
+#result-screen,
+#confirm-dialog-screen {
     display: none;
 }
 
@@ -523,4 +541,25 @@ body[data-game-state="recon_direction"] #action-prompt {
     gap: 15px; /* Adjust gap for vertical layout */
     width: 60%;
     max-width: 200px;
+}
+
+/* --- Inventory Screen as an Overlay --- */
+#inventory-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 100;
+    display: none; /* Initially hidden */
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+body[data-game-state="inventory"] #inventory-screen {
+    display: flex;
 }
