@@ -4,6 +4,7 @@ let selectedChoiceIndex = 0; // For keyboard selection on item choice screen
 let selectedConfirmIndex = 0; // For keyboard selection on next floor confirmation
 const INPUT_DEBOUNCE_MS = 100; // Cooldown in ms to prevent double taps
 let lastInput = { key: null, time: 0 };
+let isInputLocked = false; // Flag to prevent input race conditions
 let resizeTimeout; // For debouncing resize events
 
 // このモジュールで共有されるゲームインスタンス
@@ -183,6 +184,7 @@ export function renderGridToDom(displayState) {
 
             if (!isRevealed) {
                 const flagAction = (event) => {
+                    if (isInputLocked) return;
                     event.preventDefault();
                     gameInstance.toggleFlag(r, c);
                     runBrowserGameLoop();
@@ -601,6 +603,7 @@ function setupControlButtons() {
     const keyButtons = document.querySelectorAll('[data-key]');
     keyButtons.forEach(button => {
         const action = (event) => {
+            if (isInputLocked) return;
             event.preventDefault();
             const key = button.getAttribute('data-key');
             if (key) {
@@ -634,6 +637,10 @@ function renderInventoryScreen(usableItems) {
 
     const hideAndShowGame = (event) => {
         if (event) event.stopPropagation(); // イベントの伝播を停止
+
+        isInputLocked = true;
+        setTimeout(() => { isInputLocked = false; }, 50);
+
         document.body.dataset.gameState = 'playing';
         runBrowserGameLoop();
     };
@@ -643,13 +650,19 @@ function renderInventoryScreen(usableItems) {
         button.className = 'inventory-item-btn';
         button.textContent = item.name;
         const action = (event) => {
-            event.stopPropagation(); // イベントの伝播を停止
+            // pointerupイベントは、デフォルトのアクション（clickイベントのトリガーなど）が少ないが、
+            // 念のため呼び、意図しない動作を防ぐ。
             event.preventDefault();
+            event.stopPropagation();
+
+            isInputLocked = true;
+            setTimeout(() => { isInputLocked = false; }, 50);
+
             hideAndShowGame(event);
             processBrowserInput(item.key);
         };
-        button.addEventListener('click', action);
-        button.addEventListener('touchend', action, { passive: false });
+        // 'click'と'touchend'の代わりに'pointerup'に一本化
+        button.addEventListener('pointerup', action);
         screen.appendChild(button);
     });
 
@@ -657,8 +670,8 @@ function renderInventoryScreen(usableItems) {
     cancelButton.className = 'inventory-item-btn';
     cancelButton.id = 'inventory-cancel-btn';
     cancelButton.textContent = 'Cancel';
-    cancelButton.addEventListener('click', hideAndShowGame);
-    cancelButton.addEventListener('touchend', (e) => hideAndShowGame(e), { passive: false });
+    // 'click'と'touchend'の代わりに'pointerup'に一本化
+    cancelButton.addEventListener('pointerup', hideAndShowGame);
     screen.appendChild(cancelButton);
 }
 
