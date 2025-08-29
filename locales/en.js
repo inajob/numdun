@@ -1,0 +1,53 @@
+// English text resources
+export const en = {
+  // Common
+  close: "Close",
+  cancel: "Cancel",
+  yes: "Yes",
+  no: "No",
+  // Main UI
+  inventory: "Item",
+  // Status
+  floor: "Floor",
+  items: "Items",
+  none: "None",
+  revelationRate: "Revelation Rate",
+  revelationAchieved: "Achieved",
+  revelationNotAchieved: "Not Achieved",
+  viewDetails: "details",
+  // Screens & Dialogs
+  useItemTitle: "Use Item",
+  floorClearedPrompt: "Floor Cleared! Choose a reward:",
+  gameOverTitle: "Game Over",
+  finalFloor: "Final Floor",
+  heldItems: "Held Items",
+  floorRevelationRates: "Revelation Rates per Floor",
+  playAgain: "Play Again",
+  nextFloorPrompt: "Proceed to the next floor?",
+  // Notifications
+  noUsableItems: "You have no usable items.",
+  itemAcquired: "Acquired item:",
+  // Items
+  item_reveal_one_trap_name: "Scroll of Clairvoyance",
+  item_reveal_one_trap_desc: "Reveals all traps in the 8 cells surrounding the player.",
+  item_trap_shield_name: "Iron Heart",
+  item_trap_shield_desc: "Saves you from triggering a trap one time. (Passive)",
+  item_reduce_traps_name: "Disassembly Guide",
+  item_reduce_traps_desc: "Disarms one random trap.",
+  item_reveal_exit_name: "Map of the Exit",
+  item_reveal_exit_desc: "Reveals the location of the exit (E) on the current floor.",
+  item_reveal_exit_already_known: "The exit location is already known.",
+  item_long_jump_name: "Jumping Boots",
+  item_long_jump_desc: "Jump over a single cell in a chosen direction, landing two cells away.",
+  item_recon_drone_name: "Recon Drone",
+  item_recon_drone_desc: "Launch a drone in a straight line, revealing path cells. It stops when it hits a trap, revealing it.",
+  item_ariadnes_thread_name: "Ariadne's Thread",
+  item_ariadnes_thread_desc: "Reveals the shortest path from the player to the exit.",
+  item_detailed_map_of_exit_name: "Detailed Map of the Exit",
+  item_detailed_map_of_exit_desc: "Reveals the location of the exit and all 8 surrounding cells.",
+  item_detailed_map_of_exit_already_known: "The exit location is already known.",
+  item_philosophers_stone_name: "Philosopher's Stone",
+  item_philosophers_stone_desc: "Reveals a wide 5x5 area around the player.",
+  item_scroll_of_chaos_name: "Scroll of Chaos",
+  item_scroll_of_chaos_desc: "Reshuffles the positions of all traps on unrevealed and unflagged cells.",
+};

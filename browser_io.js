@@ -9,6 +9,7 @@ let resizeTimeout; // For debouncing resize events
 
 // このモジュールで共有されるゲームインスタンス
 let gameInstance;
+let t = {}; // i18n text resources
 
 // DOM要素を保持するオブジェクト。initDomCacheで初期化する。
 let dom = {};
@@ -66,8 +67,12 @@ function showItemDetailModal(itemId) {
     const overlay = modal.querySelector('.modal-overlay');
     const button = modal.querySelector('button');
 
-    modal.querySelector('h3').textContent = item.name;
-    modal.querySelector('p').textContent = item.description;
+    const nameKey = `item_${itemId}_name`;
+    const descKey = `item_${itemId}_desc`;
+
+    modal.querySelector('h3').textContent = t[nameKey] || item.name; // Fallback to item.name if not in locale
+    modal.querySelector('p').textContent = t[descKey] || item.description; // Fallback to item.description
+    button.textContent = t.close;
 
     document.body.appendChild(modal);
 
@@ -104,6 +109,7 @@ function showTutorialModal(title, contentText) {
     modal.querySelector('h3').textContent = title;
     descriptionP.textContent = contentText;
     descriptionP.style.whiteSpace = 'pre-wrap'; // To respect newlines in the text
+    button.textContent = t.close;
 
     document.body.appendChild(modal);
 
@@ -377,30 +383,33 @@ function updateStatusUI(displayState) {
     const itemEntries = Object.entries(itemCounts);
 
     if (itemEntries.length === 0) {
-        dom.itemList.innerHTML = '<strong>Items:</strong> None';
+        dom.itemList.innerHTML = `<strong>${t.items}:</strong> ${t.none}`;
     } else {
         const itemHtmlElements = itemEntries.map(([id, count]) => {
             const item = ITEMS[id];
             if (!item) return 'Unknown Item';
 
-            let itemName = item.name;
+            const nameKey = `item_${id}_name`;
+            // Get item name from locale, with a fallback to the original item object
+            let itemName = t[nameKey] || item.name;
             if (item.key) {
                 itemName += `(${item.key.toLowerCase()})`;
             }
-            return `<span class="item-link" data-item-id="${id}" title="${item.name}の詳細を見る">${itemName} x${count}</span>`;
+            const itemTitle = t[nameKey] || item.name;
+            return `<span class="item-link" data-item-id="${id}" title="${itemTitle}${t.viewDetails}">${itemName} x${count}</span>`;
         });
-        dom.itemList.innerHTML = `<strong>Items:</strong> ${itemHtmlElements.join(', ')}`;
+        dom.itemList.innerHTML = `<strong>${t.items}:</strong> ${itemHtmlElements.join(', ')}`;
     }
 
-    dom.floorNumber.textContent = `Floor: ${displayState.floorNumber}`;
+    dom.floorNumber.textContent = `${t.floor}: ${displayState.floorNumber}`;
 
     const currentRevelationRate = gameInstance.calculateRevelationRate();
     dom.revelationStatus.classList.remove('status-achieved', 'status-not-achieved');
     if (currentRevelationRate >= gameInstance.REVELATION_THRESHOLD) {
-        dom.revelationStatus.textContent = '開示率: 達成';
+        dom.revelationStatus.textContent = `${t.revelationRate}: ${t.revelationAchieved}`;
         dom.revelationStatus.classList.add('status-achieved');
     } else {
-        dom.revelationStatus.textContent = '開示率: 未達成';
+        dom.revelationStatus.textContent = `${t.revelationRate}: ${t.revelationNotAchieved}`;
         dom.revelationStatus.classList.add('status-not-achieved');
     }
 }
@@ -413,11 +422,16 @@ function renderConfirmDialog(message) {
     const content = template.content.cloneNode(true);
 
     // Set the message
-    content.querySelector('.confirm-prompt-message').textContent = message;
+    content.querySelector('.confirm-prompt-message').textContent = t.nextFloorPrompt;
 
     // Set button actions
-    content.querySelector('[data-choice="yes"]').onclick = () => processBrowserInput('yes');
-    content.querySelector('[data-choice="no"]').onclick = () => processBrowserInput('no');
+    const yesButton = content.querySelector('[data-choice="yes"]');
+    const noButton = content.querySelector('[data-choice="no"]');
+    yesButton.textContent = t.yes;
+    noButton.textContent = t.no;
+
+    yesButton.onclick = () => processBrowserInput('yes');
+    noButton.onclick = () => processBrowserInput('no');
 
     // Append the template content to the screen
     screen.appendChild(content);
@@ -433,7 +447,9 @@ function runBrowserGameLoop() {
 
     if (gameResult.newItemAcquired) {
         const item = gameResult.newItemAcquired;
-        const message = `アイテム獲得: ${item.name}`;
+        const nameKey = `item_${item.id}_name`;
+        const itemName = t[nameKey] || item.name; // Fallback for non-i18n items
+        const message = `${t.itemAcquired} ${itemName}`;
         showNotification(message, 3000);
         gameInstance.clearJustAcquiredItem();
     }
@@ -456,7 +472,9 @@ function runBrowserGameLoop() {
     }
 
     if (gameResult.lastActionMessage) {
-        showNotification(gameResult.lastActionMessage);
+        // If the message is a key, translate it. Otherwise, display as is.
+        const message = t[gameResult.lastActionMessage] || gameResult.lastActionMessage;
+        showNotification(message);
         gameInstance.clearLastActionMessage();
     }
 
@@ -486,14 +504,15 @@ function flashScreenRed() {
 }
 
 function renderResultScreen(result) {
-    document.getElementById('final-floor').textContent = `最終到達フロア: ${result.finalFloorNumber}`;
+    dom.resultScreen.querySelector('h2').textContent = t.gameOverTitle;
+    document.getElementById('final-floor').textContent = `${t.finalFloor}: ${result.finalFloorNumber}`;
     
     const finalItemsDiv = document.getElementById('final-items');
-    let itemsHtml = '所持アイテム: ';
+    let itemsHtml = `${t.heldItems}: `;
     const itemEntries = Object.entries(result.finalItems);
 
     if (itemEntries.length === 0) {
-        itemsHtml += 'なし';
+        itemsHtml += t.none;
     } else {
         itemsHtml += itemEntries.map(([id, count]) => {
             const item = ITEMS[id];
@@ -504,23 +523,25 @@ function renderResultScreen(result) {
     finalItemsDiv.textContent = itemsHtml;
 
     const floorRevelationRatesDiv = document.getElementById('floor-revelation-rates');
-    floorRevelationRatesDiv.innerHTML = '<h3>各フロアの開示率:</h3>';
+    floorRevelationRatesDiv.innerHTML = `<h3>${t.floorRevelationRates}:</h3>`;
     if (result.floorRevelationRates.length > 0) {
         const ul = document.createElement('ul');
         result.floorRevelationRates.forEach(fr => {
             const li = document.createElement('li');
-            li.textContent = `フロア ${fr.floor}: ${(fr.rate * 100).toFixed(2)}%`;
+            li.textContent = `${t.floor} ${fr.floor}: ${(fr.rate * 100).toFixed(2)}%`;
             ul.appendChild(li);
         });
         floorRevelationRatesDiv.appendChild(ul);
     } else {
-        floorRevelationRatesDiv.textContent += 'なし';
+        floorRevelationRatesDiv.textContent += t.none;
     }
+
+    dom.resetButton.textContent = t.playAgain;
 }
 
 function renderItemSelectionScreen(choices) {
     const screen = dom.itemSelectionScreen;
-    screen.innerHTML = '<h2>Floor Cleared! Choose a reward:</h2>';
+    screen.innerHTML = `<h2>${t.floorClearedPrompt}</h2>`;
     selectedChoiceIndex = 0;
 
     if (choices) {
@@ -531,8 +552,10 @@ function renderItemSelectionScreen(choices) {
                 const content = template.content.cloneNode(true);
                 const button = content.querySelector('.item-choice-btn');
                 
-                button.querySelector('strong').textContent = item.name;
-                button.querySelector('span').textContent = item.description;
+                const nameKey = `item_${id}_name`;
+                const descKey = `item_${id}_desc`;
+                button.querySelector('strong').textContent = t[nameKey] || item.name; // Fallback for non-i18n items
+                button.querySelector('span').textContent = t[descKey] || item.description; // Fallback for non-i18n items
                 
                 const action = (event) => {
                     event.preventDefault();
@@ -586,7 +609,7 @@ function setupControlButtons() {
         { id: 'btn-left', key: 'a', text: '&larr;' },
         { id: 'btn-down', key: 's', text: '&darr;' },
         { id: 'btn-right', key: 'd', text: '&rarr;' },
-        { id: 'btn-inventory', key: null, text: 'Item' }
+        { id: 'btn-inventory', key: null, text: t.inventory }
     ];
 
     controls.forEach(c => {
@@ -618,22 +641,21 @@ function setupControlButtons() {
 
 function showInventoryScreen() {
     const displayState = gameInstance.getDisplayState();
-    const usableItems = displayState.items
-        .map(id => ITEMS[id])
-        .filter(item => item && item.key !== null);
+    const usableItemIds = displayState.items
+        .filter(id => ITEMS[id] && ITEMS[id].key !== null);
 
-    if (usableItems.length === 0) {
-        showNotification("使用できるアイテムがありません。");
+    if (usableItemIds.length === 0) {
+        showNotification(t.noUsableItems);
         return;
     }
 
     document.body.dataset.gameState = 'inventory';
-    renderInventoryScreen(usableItems);
+    renderInventoryScreen(usableItemIds);
 }
 
-function renderInventoryScreen(usableItems) {
+function renderInventoryScreen(usableItemIds) {
     const screen = dom.inventoryScreen;
-    screen.innerHTML = '<h2>Use Item</h2>';
+    screen.innerHTML = `<h2>${t.useItemTitle}</h2>`;
 
     const hideAndShowGame = (event) => {
         if (event) event.stopPropagation(); // イベントの伝播を停止
@@ -645,10 +667,14 @@ function renderInventoryScreen(usableItems) {
         runBrowserGameLoop();
     };
 
-    usableItems.forEach(item => {
+    usableItemIds.forEach(id => {
+        const item = ITEMS[id];
         const button = document.createElement('button');
         button.className = 'inventory-item-btn';
-        button.textContent = item.name;
+        
+        const nameKey = `item_${id}_name`;
+        button.textContent = t[nameKey] || `(ID: ${id})`; // Fallback to ID
+
         const action = (event) => {
             // pointerupイベントは、デフォルトのアクション（clickイベントのトリガーなど）が少ないが、
             // 念のため呼び、意図しない動作を防ぐ。
@@ -669,7 +695,7 @@ function renderInventoryScreen(usableItems) {
     const cancelButton = document.createElement('button');
     cancelButton.className = 'inventory-item-btn';
     cancelButton.id = 'inventory-cancel-btn';
-    cancelButton.textContent = 'Cancel';
+    cancelButton.textContent = t.cancel;
     // 'click'と'touchend'の代わりに'pointerup'に一本化
     cancelButton.addEventListener('pointerup', hideAndShowGame);
     screen.appendChild(cancelButton);
@@ -684,7 +710,8 @@ function handleResize() {
     }, 250); // Debounce resize events for 250ms
 }
 
-export function initBrowserGame(game, initializeGame) {
+export function initBrowserGame(game, initializeGame, locale) {
+    t = locale; // Set the locale for the module
     initDomCache();
     gameInstance = game;
     document.addEventListener('keydown', handleGlobalKeyboardInput);

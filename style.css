@@ -8,8 +8,9 @@ body {
     background-color: #1a1a1a;
     color: #eee;
     display: flex;
+    flex-direction: column; /* NEW: Arrange children vertically */
     justify-content: center;
-    align-items: flex-start; /* Changed from center to flex-start */
+    align-items: center; /* Changed from flex-start to center */
     min-height: 100vh; /* Changed from height to min-height */
     margin: 0;
     touch-action: manipulation; /* Disable double-tap to zoom */
@@ -23,6 +24,7 @@ body {
     max-width: 500px;
     padding: 10px;
     box-sizing: border-box;
+    flex-grow: 1; /* NEW: Occupy available vertical space */
 }
 #game-container {
     width: 100%;
@@ -40,6 +42,13 @@ h1 {
     text-align: center;
     margin-top: 0;
     margin-bottom: 10px;
+}
+
+h1 .subtitle {
+    font-size: 0.6em; /* 親要素の60%のサイズ */
+    vertical-align: middle; /* 中央揃え */
+    margin-left: 5px; /* 少し左にスペース */
+    opacity: 0.8; /* 少し薄く */
 }
 #game-status {
     display: flex;
@@ -562,4 +571,30 @@ body[data-game-state="recon_direction"] #action-prompt {
 
 body[data-game-state="inventory"] #inventory-screen {
     display: flex;
+}
+
+/* --- Language Switcher Footer --- */
+footer {
+    padding: 20px;
+    text-align: center;
+    font-size: 0.9em;
+    color: #888;
+}
+
+footer a.lang-switcher {
+    color: #aaa;
+    text-decoration: none;
+    padding: 5px;
+}
+
+footer a.lang-switcher:hover {
+    text-decoration: underline;
+    color: #fff;
+}
+
+footer a.lang-switcher.active {
+    font-weight: bold;
+    color: #fff;
+    text-decoration: none;
+    cursor: default;
 }

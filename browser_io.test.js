@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { initBrowserGame } from './browser_io.js';
+import { en as t } from './locales/en.js'; // 英語リソースをインポート
 
 // ESM環境で__dirnameの代わり
 const __filename = fileURLToPath(import.meta.url);
@@ -59,7 +60,7 @@ describe('browser_io with Dependency Injection', () => {
 
   test('initBrowserGame should set up the game and event listeners', () => {
     // Act: モックを注入してゲームを初期化
-    initBrowserGame(mockGame, mockInitializeGame);
+    initBrowserGame(mockGame, mockInitializeGame, t);
 
     // Assert: ゲームのセットアップ関数が呼ばれたことを確認
     expect(mockGame.setupFloor).toHaveBeenCalledTimes(1);
@@ -76,7 +77,7 @@ describe('browser_io with Dependency Injection', () => {
 
   test('keyboard input should call handleInput on the game instance', () => {
     // Arrange
-    initBrowserGame(mockGame, mockInitializeGame);
+    initBrowserGame(mockGame, mockInitializeGame, t);
 
     // Act: 'd'キーの押下をシミュレート
     const event = new KeyboardEvent('keydown', { key: 'd' });
@@ -90,7 +91,7 @@ describe('browser_io with Dependency Injection', () => {
     // Arrange
     // runBrowserGameLoopを一度実行してグリッドを描画させる
     mockGame.gameLoop.mockReturnValueOnce({ displayState: mockDisplayState, gameState: 'playing' });
-    initBrowserGame(mockGame, mockInitializeGame);
+    initBrowserGame(mockGame, mockInitializeGame, t);
 
     // Act: 2番目のセル（フラグが立っていない）をクリック
     const cell = document.querySelectorAll('.game-cell')[1];

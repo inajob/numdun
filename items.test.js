@@ -72,7 +72,7 @@ describe('items.js', () => {
       mockGame.exitRevealedThisFloor = true;
       const result = item.use(mockGame);
       expect(result.consumed).toBe(false);
-      expect(result.message).toBe('出口はすでに判明している。');
+      expect(result.messageKey).toBe('item_reveal_exit_already_known');
     });
   });
 
