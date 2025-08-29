@@ -105,7 +105,7 @@ h1 {
 }
 #btn-up { grid-column: 2; grid-row: 1; }
 #btn-left { grid-column: 1; grid-row: 2; }
-#btn-inventory { grid-column: 2; grid-row: 2; }
+#btn-inventory { grid-column: 1; grid-row: 1; }
 #btn-right { grid-column: 3; grid-row: 2; }
 #btn-down { grid-column: 2; grid-row: 3; }
 

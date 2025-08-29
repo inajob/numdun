@@ -586,7 +586,7 @@ function setupControlButtons() {
         { id: 'btn-left', key: 'a', text: '&larr;' },
         { id: 'btn-down', key: 's', text: '&darr;' },
         { id: 'btn-right', key: 'd', text: '&rarr;' },
-        { id: 'btn-inventory', key: null, text: 'Inv' }
+        { id: 'btn-inventory', key: null, text: 'Item' }
     ];
 
     controls.forEach(c => {
