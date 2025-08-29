@@ -639,7 +639,7 @@ function renderInventoryScreen(usableItems) {
         if (event) event.stopPropagation(); // イベントの伝播を停止
 
         isInputLocked = true;
-        setTimeout(() => { isInputLocked = false; }, 50);
+        setTimeout(() => { isInputLocked = false; }, 300);
 
         document.body.dataset.gameState = 'playing';
         runBrowserGameLoop();
@@ -656,7 +656,7 @@ function renderInventoryScreen(usableItems) {
             event.stopPropagation();
 
             isInputLocked = true;
-            setTimeout(() => { isInputLocked = false; }, 50);
+            setTimeout(() => { isInputLocked = false; }, 300);
 
             hideAndShowGame(event);
             processBrowserInput(item.key);
