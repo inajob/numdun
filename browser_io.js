@@ -95,7 +95,7 @@ function showItemDetailModal(itemId) {
  * @param {string} title The title of the modal.
  * @param {string} contentText The text content of the modal.
  */
-function showTutorialModal(title, contentText) {
+function showTutorialModal(tutorialData) {
     // Close any existing modal first
     const existingModal = document.querySelector('.modal-overlay');
     if (existingModal) existingModal.remove();
@@ -105,6 +105,9 @@ function showTutorialModal(title, contentText) {
     const overlay = modal.querySelector('.modal-overlay');
     const button = modal.querySelector('button');
     const descriptionP = modal.querySelector('p');
+
+    const title = t[tutorialData.titleKey] || tutorialData.titleKey;
+    const contentText = t[tutorialData.contentKey] || tutorialData.contentKey;
 
     modal.querySelector('h3').textContent = title;
     descriptionP.textContent = contentText;
@@ -472,9 +475,20 @@ function runBrowserGameLoop() {
     }
 
     if (gameResult.lastActionMessage) {
-        // If the message is a key, translate it. Otherwise, display as is.
-        const message = t[gameResult.lastActionMessage] || gameResult.lastActionMessage;
-        showNotification(message);
+        let messageToDisplay = '';
+        if (typeof gameResult.lastActionMessage === 'object' && gameResult.lastActionMessage.key) {
+            // If it's an object with a key, use it for translation and parameter substitution
+            let translatedMessage = t[gameResult.lastActionMessage.key] || gameResult.lastActionMessage.key;
+            // Simple parameter substitution (e.g., {0}, {1})
+            gameResult.lastActionMessage.params.forEach((param, index) => {
+                translatedMessage = translatedMessage.replace(new RegExp(`{${index}}`, 'g'), param);
+            });
+            messageToDisplay = translatedMessage;
+        } else {
+            // If it's a string, treat it as a key or a literal message
+            messageToDisplay = t[gameResult.lastActionMessage] || gameResult.lastActionMessage;
+        }
+        showNotification(messageToDisplay);
         gameInstance.clearLastActionMessage();
     }
 
@@ -492,7 +506,7 @@ function runBrowserGameLoop() {
     }
 
     if (gameResult.tutorialToShow) {
-        showTutorialModal(gameResult.tutorialToShow.title, gameResult.tutorialToShow.content);
+        showTutorialModal(gameResult.tutorialToShow);
     }
 }
 
@@ -517,7 +531,9 @@ function renderResultScreen(result) {
         itemsHtml += itemEntries.map(([id, count]) => {
             const item = ITEMS[id];
             if (!item) return 'Unknown Item';
-            return `${item.name} x${count}`;
+            const nameKey = `item_${id}_name`;
+            const itemName = t[nameKey] || item.name; // Fallback to item.name if not found in locale
+            return `${itemName} x${count}`;
         }).join(', ');
     }
     finalItemsDiv.textContent = itemsHtml;

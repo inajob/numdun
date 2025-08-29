@@ -80,12 +80,8 @@ export const game = {
 
     if (this.floorNumber === 5) {
         this.tutorialToShow = {
-            title: '新ギミック：見通しの悪いマス',
-            content: `このフロアから、ひび割れた「見通しの悪いマス」が登場します。
-
-このマスに表示される数字は、そのマスの「上下左右」4方向にある罠の数のみを示しており、「斜め」方向の罠はカウントしません。
-
-開示して初めて判明するため、注意深く探索しましょう。`
+            titleKey: 'tutorialObscuredCellTitle',
+            contentKey: 'tutorialObscuredCellContent'
         };
     }
 
@@ -316,7 +312,10 @@ export const game = {
         const currentRevelationRate = this.calculateRevelationRate();
         this.floorRevelationRates.push({ floor: this.floorNumber, rate: currentRevelationRate });
         if (currentRevelationRate < this.REVELATION_THRESHOLD) {
-          this.lastActionMessage = `フロア開示率が${(this.REVELATION_THRESHOLD * 100).toFixed(0)}%未満のため、アイテムボーナスはありませんでした。（${(currentRevelationRate * 100).toFixed(0)}%）`;
+          this.lastActionMessage = {
+            key: 'bonusLostMessage',
+            params: [(this.REVELATION_THRESHOLD * 100).toFixed(0), (currentRevelationRate * 100).toFixed(0)]
+          };
           this.floorNumber++;
           this.setupFloor();
         } else {
@@ -342,7 +341,7 @@ export const game = {
         case 'd': dc = 1; directionChosen = true; break;
         default:
           this.gameState = 'playing';
-          this.lastActionMessage = '偵察ドローンの使用をキャンセルしました。';
+          this.lastActionMessage = 'reconDroneCancelled';
           return this.gameLoop();
       }
       if (directionChosen) {
@@ -372,7 +371,7 @@ export const game = {
         case 'd': jumpCol += 2; jumped = true; break;
         default:
             this.gameState = 'playing';
-            this.lastActionMessage = '跳躍のブーツの使用をキャンセルしました。';
+            this.lastActionMessage = 'longJumpCancelled';
             return this.gameLoop();
       }
       if (jumped && isValidCell(jumpRow, jumpCol, this.rows, this.cols)) {
@@ -411,7 +410,7 @@ export const game = {
       if (moved) {
         if (isValidCell(newRow, newCol, this.rows, this.cols)) {
           if (this.grid[newRow][newCol].isFlagged) {
-            this.lastActionMessage = 'チェックしたマスには移動できません。';
+            this.lastActionMessage = 'cantMoveToFlaggedCell';
             return this.gameLoop();
           }
           this.player.r = newRow;
@@ -441,11 +440,11 @@ export const game = {
         this.calculateNumbers();
         this.revealFrom(this.player.r, this.player.c);
         this.uiEffect = 'flash_red';
-        this.lastActionMessage = '鉄の心臓が身代わりになった！';
+        this.lastActionMessage = 'trapShieldTriggered';
       } else {
         currentCell.isRevealed = true;
         this.gameState = 'gameover';
-        this.lastActionMessage = '罠を踏んでしまった！';
+        this.lastActionMessage = 'trapTriggered';
       }
     }
     if (currentCell.hasItem) {
@@ -507,7 +506,7 @@ export const game = {
     } else if (this.gameState === 'recon_direction') {
       message = 'Recon direction (w/a/s/d):';
     } else if (this.gameState === 'confirm_next_floor') {
-      message = '次のフロアに進みますか？';
+      message = 'nextFloorPrompt';
     }
     const result = {
       displayState: this.getDisplayState(),

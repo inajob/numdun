@@ -27,6 +27,19 @@ export const ja = {
   // Notifications
   noUsableItems: "使用できるアイテムがありません。",
   itemAcquired: "アイテム獲得:",
+  bonusLostMessage: "フロア開示率が{0}%未満のため、アイテムボーナスはありませんでした。（{1}%）",
+  cantMoveToFlaggedCell: "チェックしたマスには移動できません。",
+  trapShieldTriggered: "鉄の心臓が身代わりになった！",
+  trapTriggered: "罠を踏んでしまった！",
+  reconDroneCancelled: "偵察ドローンの使用をキャンセルしました。",
+  longJumpCancelled: "跳躍のブーツの使用をキャンセルしました。",
+  // Tutorials
+  tutorialObscuredCellTitle: "新ギミック：見通しの悪いマス",
+  tutorialObscuredCellContent: `このフロアから、ひび割れた「見通しの悪いマス」が登場します。
+
+このマスに表示される数字は、そのマスの「上下左右」4方向にある罠の数のみを示しており、「斜め」方向の罠はカウントしません。
+
+開示して初めて判明するため、注意深く探索しましょう。`,
   // Items
   item_reveal_one_trap_name: "千里眼の巻物",
   item_reveal_one_trap_desc: "プレイヤーの周囲8マスにある罠をすべて明らかにする。",

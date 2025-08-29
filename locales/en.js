@@ -27,6 +27,15 @@ export const en = {
   // Notifications
   noUsableItems: "You have no usable items.",
   itemAcquired: "Acquired item:",
+  bonusLostMessage: "Floor revelation rate was below {0}%, so no item bonus was awarded. ({1}%)",
+  cantMoveToFlaggedCell: "Cannot move to a flagged cell.",
+  trapShieldTriggered: "Iron Heart took the hit!",
+  trapTriggered: "You stepped on a trap!",
+  reconDroneCancelled: "Recon drone use cancelled.",
+  longJumpCancelled: "Long jump use cancelled.",
+  // Tutorials
+  tutorialObscuredCellTitle: "New Gimmick: Obscured Cells",
+  tutorialObscuredCellContent: "Starting from this floor, cracked 'Obscured Cells' will appear.\n\nThe number displayed on these cells only indicates the number of traps in the 4 cardinal directions (up, down, left, right), and does not count traps in diagonal directions.\n\nExplore carefully, as their true nature is only revealed upon exposure.",
   // Items
   item_reveal_one_trap_name: "Scroll of Clairvoyance",
   item_reveal_one_trap_desc: "Reveals all traps in the 8 cells surrounding the player.",
