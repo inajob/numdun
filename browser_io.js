@@ -481,7 +481,7 @@ function runBrowserGameLoop() {
             let translatedMessage = t[gameResult.lastActionMessage.key] || gameResult.lastActionMessage.key;
             // Simple parameter substitution (e.g., {0}, {1})
             gameResult.lastActionMessage.params.forEach((param, index) => {
-                translatedMessage = translatedMessage.replace(new RegExp(`{${index}}`, 'g'), param);
+                translatedMessage = translatedMessage.replace(new RegExp(`\{${index}\}`, 'g'), param);
             });
             messageToDisplay = translatedMessage;
         } else {
