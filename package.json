@@ -1,4 +1,7 @@
 {
+  "name": "numdun",
+  "version": "1.0.0",
+  "description": "NumDun: A minimalist roguelite game based on Minesweeper.",
   "type": "module",
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"

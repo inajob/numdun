@@ -1,6 +1,6 @@
 いますぐプレイ！ [Trap Dungeon をブラウザで遊ぶ](https://inajob.github.io/trap-dungeon/)
 
-# Trap Dungeon
+# NumDun
 
 ## Gemini CLI と共に創られたゲーム
 
