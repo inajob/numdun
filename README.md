@@ -1,7 +1,5 @@
 いますぐプレイ！ [NumDun をブラウザで遊ぶ](https://inajob.github.io/numdun/)
-
 Play now! [Play NumDun in your browser](https://inajob.github.io/numdun/)
-
 
 ![NumDun Game Screenshot](imgs/cover.png)
 
@@ -16,11 +14,7 @@ English explanation is available below.
 しかし、このプロジェクトの真の価値は、その開発プロセスにあります。本ゲームは、Google Gemini CLI との対話を通じて、インタラクティブに開発されました。
 
 Gemini CLI は、以下のような様々なソフトウェアエンジニアリングタスクにおいて、強力なアシスタントとして機能しました。
-
-*   **機能追加**: スマートフォン対応、アイテムボーナスロジックの導入など、新しいゲームメカニクスの実装。
-*   **バグ修正**: ジャンプ移動の不具合、レイアウトのずれなどの問題解決。
-*   **リファクタリング**: コードの整理と最適化。
-*   **ドキュメント更新**: ゲーム仕様やOGPタグの追加・修正。
+ほぼすべてのソースコードを**無料プランの**Gemini CLIにより生成しています。
 
 ## 自由にフォークして改造してください！
 
