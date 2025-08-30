@@ -46,7 +46,7 @@ export const ja = {
   item_trap_shield_name: "鉄の心臓",
   item_trap_shield_desc: "罠を踏んだ時に1度だけ身代わりになる。(パッシブ)",
   item_reduce_traps_name: "解体の手引き",
-  item_reduce_traps_desc: "ランダムな罠1つを無効化する。",
+  item_reduce_traps_desc: "プレイヤーの周囲8マスにあるランダムな罠を1つ無効化する。",
   item_reveal_exit_name: "出口の地図",
   item_reveal_exit_desc: "現在のフロアの出口(E)の位置を明らかにする。",
   item_reveal_exit_already_known: "出口はすでに判明している。",

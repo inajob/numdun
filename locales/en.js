@@ -42,7 +42,7 @@ export const en = {
   item_trap_shield_name: "Iron Heart",
   item_trap_shield_desc: "Saves you from triggering a trap one time. (Passive)",
   item_reduce_traps_name: "Disassembly Guide",
-  item_reduce_traps_desc: "Disarms one random trap.",
+  item_reduce_traps_desc: "Disarms one random trap within the 8 cells surrounding the player.",
   item_reveal_exit_name: "Map of the Exit",
   item_reveal_exit_desc: "Reveals the location of the exit (E) on the current floor.",
   item_reveal_exit_already_known: "The exit location is already known.",
