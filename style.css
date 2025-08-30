@@ -581,15 +581,18 @@ footer {
     color: #888;
 }
 
-footer a.lang-switcher {
+footer a, footer a:visited {
     color: #aaa;
     text-decoration: none;
-    padding: 5px;
 }
 
-footer a.lang-switcher:hover {
+footer a:hover {
     text-decoration: underline;
     color: #fff;
+}
+
+footer a.lang-switcher {
+    padding: 5px;
 }
 
 footer a.lang-switcher.active {
