@@ -1,5 +1,8 @@
 いますぐプレイ！ [NumDun をブラウザで遊ぶ](https://inajob.github.io/numdun/)
 
+Play now! [Play NumDun in your browser](https://inajob.github.io/numdun/)
+
+
 ![NumDun Game Screenshot](imgs/cover.png)
 
 # NumDun
