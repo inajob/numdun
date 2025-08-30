@@ -683,27 +683,34 @@ function renderInventoryScreen(usableItemIds) {
         runBrowserGameLoop();
     };
 
-    usableItemIds.forEach(id => {
+    // アイテムをカウントする
+    const itemCounts = usableItemIds.reduce((counts, id) => {
+        counts[id] = (counts[id] || 0) + 1;
+        return counts;
+    }, {});
+
+    Object.entries(itemCounts).forEach(([id, count]) => {
         const item = ITEMS[id];
+        if (!item) return; // アイテムが見つからない場合はスキップ
+
         const button = document.createElement('button');
         button.className = 'inventory-item-btn';
         
         const nameKey = `item_${id}_name`;
-        button.textContent = t[nameKey] || `(ID: ${id})`; // Fallback to ID
+        let buttonText = t[nameKey] || `(ID: ${id})`;
+        if (count > 1) {
+            buttonText += ` ×${count}`;
+        }
+        button.textContent = buttonText;
 
         const action = (event) => {
-            // pointerupイベントは、デフォルトのアクション（clickイベントのトリガーなど）が少ないが、
-            // 念のため呼び、意図しない動作を防ぐ。
             event.preventDefault();
             event.stopPropagation();
-
             isInputLocked = true;
             setTimeout(() => { isInputLocked = false; }, 300);
-
             hideAndShowGame(event);
             processBrowserInput(item.key);
         };
-        // 'click'と'touchend'の代わりに'pointerup'に一本化
         button.addEventListener('pointerup', action);
         screen.appendChild(button);
     });
